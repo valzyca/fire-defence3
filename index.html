@@ -10,11 +10,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
     
-    <!-- 引入核心的顏色追蹤庫與高可用性官方 AI Face Mesh 核心與鏡頭驅動庫 -->
+    <!-- 引入核心的顏色追蹤庫 與 官方 MediaPipe 臉部網格庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/tracking-min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-    
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: 'PingFang TC', sans-serif; }
         
@@ -37,10 +36,13 @@
             transition: opacity 0.5s ease;
         }
         #start-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 11; }
+        
         #start-ui { position: relative; z-index: 12; text-align: center; pointer-events: none; width: 100%; height: 100%; }
+        
         #start-prompt { 
             position: absolute; left: 50%; top: 61%; transform: translate(-50%, -50%); width: 100%;
-            font-size: clamp(13px, 2.2vh, 20px); color: #ffd700; text-shadow: 0 0 8px #ff4500, 0 0 15px #ff0000; animation: pulseGlow 2s infinite ease-in-out; font-weight: bold; letter-spacing: 3px; margin: 0;
+            font-size: clamp(13px, 2.2vh, 20px); color: #ffd700; -webkit-text-stroke: 0px transparent !important; text-stroke: 0px transparent !important; 
+            text-shadow: 0 0 8px #ff4500, 0 0 15px #ff0000; animation: pulseGlow 2s infinite ease-in-out; font-weight: bold; letter-spacing: 3px; margin: 0;
         }
 
         @keyframes pulseGlow { 0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.97); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); } }
@@ -53,7 +55,7 @@
         .success { color: #00d2ff; }
         .failed { color: #ff4500; }
 
-        /* 底部五頂魔法帽生命值（HP）圖示區 - 預設強制完全隱藏 */
+        /* 底部五頂魔法帽生命值（HP）圖示區 - 預設強制完全隱藏，採用修正後的小寫路徑 */
         #hat-hp-bar {
             display: none !important; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); z-index: 15;
             gap: 12px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; border: 1px solid #ff4500;
@@ -78,13 +80,13 @@
         }
         .pulse-effect { animation: redPulse 0.6s 2 ease-in-out; }
 
-        /* 遊戲結束挑戰畫面 */
-        #game-over-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 40; background: rgba(0, 0, 0, 0.9); flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        #game-over-text { font-size: clamp(32px, 5vh, 56px); font-weight: bold; margin-bottom: 15px; letter-spacing: 2px; }
+        /* 遊戲結束畫面 */
+        #game-over-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 40; background: rgba(0, 0, 0, 0.9); flex-direction: column; justify-content: center; align-items: center; color: #ff3333; text-align: center; }
+        #game-over-text { font-size: 64px; font-weight: bold; text-shadow: 0 0 20px #ff0000; margin-bottom: 20px; letter-spacing: 2px; }
         #game-result-details { color: #fff; font-size: 20px; margin-bottom: 35px; line-height: 1.8; }
         #btn-reload { pointer-events: auto; background: linear-gradient(135deg, #ff4500 0%, #b30000 100%); color: #fff; font-size: 18px; font-weight: bold; padding: 14px 44px; border-radius: 30px; border: 2px solid #ffd700; box-shadow: 0 0 15px rgba(255, 69, 0, 0.6); cursor: pointer; transition: all 0.2s ease; letter-spacing: 2px; }
 
-        /* 畫面受傷震動 */
+        /* 畫面震動 */
         @keyframes shake {
             0% { transform: translate(2px, 2px) rotate(0deg); }
             20% { transform: translate(-3px, -1px) rotate(-1deg); }
@@ -106,22 +108,22 @@
         </div>
     </div>
 
-    <!-- 實時鏡頭 -->
-    <video id="webcam" autoplay loop muted playsinline style="display:none;"></video>
+    <!-- 實時鏡頭 - 恢復基準代碼無 display:none 的設定 -->
+    <video id="webcam" preload autoplay loop muted playsinline></video>
     
-    <!-- 遊戲特效畫布 -->
+    <!-- 遊戲特效層 -->
     <canvas id="game-canvas"></canvas>
 
     <!-- 符文自適應外框 -->
     <div id="game-stone-frame"></div>
 
-    <!-- 危機紅色受傷呼吸層 -->
+    <!-- 危機紅色呼吸層 -->
     <div id="danger-glow-screen"></div>
 
-    <!-- 巨大倒數計時層 -->
+    <!-- 羅馬數字巨大倒數計時層 -->
     <div id="countdown-overlay">III</div>
 
-    <!-- 頂部提示 UI -->
+    <!-- 提示 UI -->
     <div id="instruction">
         <strong id="ritual-title" style="color: #ffd700;">結界啟動中...</strong><br>
         <span id="ritual-desc" style="font-size: 13px;">請用手指在圓圈內依序滑過藍色發光點，一筆畫畫出五芒星！</span>
@@ -133,7 +135,7 @@
         <div>防禦失敗：<span id="txt-failed" class="failed">0</span> 次</div>
     </div>
 
-    <!-- 底部五頂魔法帽生命值血條 -->
+    <!-- 底部五頂魔法帽生命值血條 - 採用小寫修正名稱路徑 -->
     <div id="hat-hp-bar">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-1">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-2">
@@ -142,7 +144,7 @@
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-5">
     </div>
 
-    <!-- 遊戲結束與重新挑戰畫面 -->
+    <!-- 重新挑戰畫面 -->
     <div id="game-over-screen">
         <div id="game-over-text">特訓結束</div>
         <div id="game-result-details"></div>
@@ -164,30 +166,39 @@
 
         let gameStarted = false;
         let scoreSuccess = 0;
-        let scoreFailed = 0; 
+        let scoreFailed = 0; // 轉為記錄生命值扣血次數
         let isGameOver = false;
 
         let gameState = 'cover'; 
         let countdownNumber = 3;
 
-        let dragonImg = new Image(); dragonImg.src = "dragon head-front.png";
-        let hatImg = new Image(); hatImg.src = "CIC-hat.png";
-        let magicCircleImg = new Image(); magicCircleImg.src = "bg.png"; 
-        let bg1Img = new Image(); bg1Img.src = "bg-1.png";
-
-        // 🛠️ 【邏輯重構】：在巨龍物件中新增 shootCooldown 用來控制火球掉落頻率，解耦隨機總時間
-        let dragonBoss = { x: 0, y: 50, width: 140, height: 140, speedX: 2.5, state: 'move', stateTimer: 120, shootCooldown: 0 };
-        let fireballs = []; 
-        let dragonLaser = { active: false, x: 0, topY: 0, width: 35, alpha: 0 };
-        let userHatAR = { x: 0, y: 0, width: 110, height: 110, tracked: false, ivX: 0, ivY: 0 };
-        
-        let crosshair = { x: 0, y: 0, targetX: 0, targetY: 0, rotation: 0, size: 35, hasTracking: false };
+        // 100% 繼承基準代碼火球物件定義
+        let fireball = { x: 0, y: 0, size: 5, speedX: 0, speedY: 0, active: false };
+        // 100% 原始魔杖追蹤準星數據
+        let crosshair = { x: 0, y: 0, targetX: 0, targetY: 0, rotation: 0, targetSize: 35, currentSize: 35, hasTracking: false };
         let explosions = []; 
         let coronaParticles = [];
-        let circleRotation = 0; let bg1Rotation = 0; let ritualOpacity = 1.0; 
+        
+        let magicCircleImg = new Image();
+        let bg1Img = new Image();
+        let circleRotation = 0;
+        let bg1Rotation = 0;
+        let ritualOpacity = 1.0; 
 
-        let pentagramPoints = []; let nextRequiredPoint = 0; let wandTrail = []; 
-        let invulnerableTimer = 0; 
+        magicCircleImg.src = "bg.png"; 
+        bg1Img.src = "bg-1.png";
+
+        let pentagramPoints = []; 
+        let nextRequiredPoint = 0; 
+        let wandTrail = []; 
+
+        // 🐉 巨龍與 AR 閃避新機制物件獨立宣告
+        let dragonImg = new Image(); dragonImg.src = "dragon head-front.png";
+        let hatImg = new Image(); hatImg.src = "CIC-hat.png";
+        let dragonBoss = { x: 0, y: 50, width: 140, height: 140, speedX: 2.5, state: 'move', stateTimer: 120, shootCooldown: 0 };
+        let dragonLaser = { active: false, x: 0, topY: 0, width: 35 };
+        let userHatAR = { x: 0, y: 0, width: 110, height: 110, tracked: false, ivX: 0, ivY: 0 };
+        let invulnerableTimer = 0;
 
         function resizeCanvases() {
             canvas.width = window.innerWidth;
@@ -201,22 +212,38 @@
 
         function generatePentagramPoints() {
             let centerX = startCanvas.width / 2;
-            let minDim = Math.min(startCanvas.width, startCanvas.height);
-            let circleCenterY = startCanvas.height * 0.34;
+            let W = startCanvas.width;
+            let H = startCanvas.height;
+            let minDim = Math.min(W, H);
+            let circleCenterY = H * 0.34;
             let radius = minDim * 0.26; 
+
             pentagramPoints = [];
             let drawOrderAngles = [ -Math.PI/2, Math.PI*0.7, -Math.PI*0.9, Math.PI*0.3, Math.PI*0.1 ];
+            
             for(let i=0; i<5; i++) {
                 let angle = drawOrderAngles[i];
-                pentagramPoints.push({ x: centerX + Math.cos(angle) * radius, y: circleCenterY + Math.sin(angle) * radius, activated: false });
+                pentagramPoints.push({
+                    x: centerX + Math.cos(angle) * radius,
+                    y: circleCenterY + Math.sin(angle) * radius,
+                    activated: false
+                });
             }
         }
 
         function handleTouchMove(e) {
             if (gameState !== 'drawing') return;
             e.preventDefault();
-            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
             wandTrail.push({ x: clientX, y: clientY });
             if (wandTrail.length > 30) wandTrail.shift();
 
@@ -226,7 +253,9 @@
                 if (dist < 40) { 
                     targetPt.activated = true;
                     nextRequiredPoint++;
-                    if (nextRequiredPoint >= 5) gameState = 'success_anim';
+                    if (nextRequiredPoint >= 5) {
+                        gameState = 'success_anim';
+                    }
                 }
             }
         }
@@ -235,6 +264,7 @@
             if(gameState === 'cover') { gameState = 'drawing'; document.getElementById('start-prompt').style.display = 'none'; document.getElementById('instruction').style.display = 'block'; }
         });
         startScreen.addEventListener('mousemove', handleTouchMove);
+        
         startScreen.addEventListener('touchstart', (e) => {
             if(gameState === 'cover') { gameState = 'drawing'; document.getElementById('start-prompt').style.display = 'none'; document.getElementById('instruction').style.display = 'block'; }
         }, { passive: false });
@@ -242,13 +272,19 @@
 
         function updateStartScreen() {
             if (gameStarted && gameState === 'playing') return;
-            if (startCanvas.width !== window.innerWidth || startCanvas.height !== window.innerHeight) resizeCanvases();
+
+            if (startCanvas.width !== window.innerWidth || startCanvas.height !== window.innerHeight) {
+                resizeCanvases();
+            }
             
             startCtx.fillStyle = '#000000';
             startCtx.fillRect(0, 0, startCanvas.width, startCanvas.height);
-            let centerX = startCanvas.width / 2;
-            let minDim = Math.min(startCanvas.width, startCanvas.height);
-            let circleCenterY = startCanvas.height * 0.34;
+
+            let W = startCanvas.width;
+            let H = startCanvas.height;
+            let centerX = W / 2;
+            let minDim = Math.min(W, H);
+            let circleCenterY = H * 0.34;
 
             startCtx.save();
             startCtx.globalAlpha = ritualOpacity;
@@ -258,8 +294,10 @@
                     let angle = Math.random() * Math.PI * 2;
                     let speed = Math.random() * 2 + 1.5; 
                     coronaParticles.push({
-                        x: centerX + Math.cos(angle) * (minDim * 0.25), y: circleCenterY + Math.sin(angle) * (minDim * 0.25),
-                        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                        x: centerX + Math.cos(angle) * (minDim * 0.25),
+                        y: circleCenterY + Math.sin(angle) * (minDim * 0.25),
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
                         life: Math.random() * 30 + 20, maxLife: 50, size: Math.random() * 25 + 15
                     });
                 }
@@ -280,56 +318,93 @@
             }
 
             let fixedSize = minDim * 0.58;
+
             if (gameState === 'cover') {
-                startCtx.save(); startCtx.translate(centerX, circleCenterY); circleRotation += 0.004; startCtx.rotate(circleRotation);
-                if (magicCircleImg.complete) startCtx.drawImage(magicCircleImg, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                startCtx.save();
+                startCtx.translate(centerX, circleCenterY);
+                circleRotation += 0.004;
+                startCtx.rotate(circleRotation);
+                if (magicCircleImg.complete) {
+                    startCtx.drawImage(magicCircleImg, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                }
                 startCtx.restore();
             } 
             else if (gameState === 'drawing') {
-                startCtx.save(); startCtx.translate(centerX, circleCenterY); bg1Rotation -= 0.002; startCtx.rotate(bg1Rotation);
-                if (bg1Img.complete) startCtx.drawImage(bg1Img, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                startCtx.save();
+                startCtx.translate(centerX, circleCenterY);
+                bg1Rotation -= 0.002; 
+                startCtx.rotate(bg1Rotation);
+                if (bg1Img.complete) {
+                    startCtx.drawImage(bg1Img, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                }
                 startCtx.restore();
 
                 if (wandTrail.length > 1) {
                     startCtx.save();
-                    startCtx.strokeStyle = 'rgba(0, 210, 255, 0.4)'; startCtx.lineWidth = 8; startCtx.lineCap = 'round'; startCtx.lineJoin = 'round';
-                    startCtx.beginPath(); startCtx.moveTo(wandTrail[0].x, wandTrail[0].y);
+                    startCtx.strokeStyle = 'rgba(0, 210, 255, 0.4)';
+                    startCtx.lineWidth = 8;
+                    startCtx.lineCap = 'round';
+                    startCtx.lineJoin = 'round';
+                    startCtx.beginPath();
+                    startCtx.moveTo(wandTrail[0].x, wandTrail[0].y);
                     for(let k=1; k<wandTrail.length; k++) startCtx.lineTo(wandTrail[k].x, wandTrail[k].y);
                     startCtx.stroke();
-                    startCtx.strokeStyle = '#ffffff'; startCtx.lineWidth = 3;
-                    startCtx.beginPath(); startCtx.moveTo(wandTrail[0].x, wandTrail[0].y);
+                    
+                    startCtx.strokeStyle = '#ffffff';
+                    startCtx.lineWidth = 3;
+                    startCtx.beginPath();
+                    startCtx.moveTo(wandTrail[0].x, wandTrail[0].y);
                     for(let k=1; k<wandTrail.length; k++) startCtx.lineTo(wandTrail[k].x, wandTrail[k].y);
-                    startCtx.stroke(); startCtx.restore();
+                    startCtx.stroke();
+                    startCtx.restore();
                 }
 
                 pentagramPoints.forEach((pt, index) => {
                     startCtx.save();
                     let isCurrent = (index === nextRequiredPoint);
                     if (pt.activated) {
-                        startCtx.fillStyle = '#00ffff'; startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 9, 0, Math.PI * 2); startCtx.fill();
+                        startCtx.fillStyle = '#00ffff';
+                        startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 9, 0, Math.PI * 2); startCtx.fill();
                     } else if (isCurrent) {
                         let breath = Math.sin(Date.now() * 0.008) * 2;
-                        startCtx.fillStyle = '#0077ff'; startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 11 + breath, 0, Math.PI * 2); startCtx.fill();
-                        startCtx.strokeStyle = '#ffffff'; startCtx.lineWidth = 1.5; startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 14 + breath, 0, Math.PI * 2); startCtx.stroke();
+                        startCtx.fillStyle = '#0077ff';
+                        startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 11 + breath, 0, Math.PI * 2); startCtx.fill();
+                        startCtx.strokeStyle = '#ffffff';
+                        startCtx.lineWidth = 1.5;
+                        startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 14 + breath, 0, Math.PI * 2); startCtx.stroke();
                     } else {
-                        startCtx.fillStyle = 'rgba(0, 119, 255, 0.3)'; startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 8, 0, Math.PI * 2); startCtx.fill();
+                        startCtx.fillStyle = 'rgba(0, 119, 255, 0.3)';
+                        startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 8, 0, Math.PI * 2); startCtx.fill();
                     }
                     startCtx.restore();
                 });
             } 
             else if (gameState === 'success_anim') {
-                circleRotation += 0.06; bg1Rotation -= 0.04;   
-                startCtx.save(); startCtx.translate(centerX, circleCenterY); startCtx.rotate(bg1Rotation);
-                if (bg1Img.complete) startCtx.drawImage(bg1Img, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                circleRotation += 0.06; 
+                bg1Rotation -= 0.04;   
+
+                startCtx.save();
+                startCtx.translate(centerX, circleCenterY);
+                startCtx.rotate(bg1Rotation);
+                if (bg1Img.complete) {
+                    startCtx.drawImage(bg1Img, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                }
                 startCtx.restore();
-                startCtx.save(); startCtx.translate(centerX, circleCenterY); startCtx.rotate(circleRotation);
-                startCtx.shadowBlur = 40; startCtx.shadowColor = '#ffd700'; 
-                if (magicCircleImg.complete) startCtx.drawImage(magicCircleImg, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+
+                startCtx.save();
+                startCtx.translate(centerX, circleCenterY);
+                startCtx.rotate(circleRotation);
+                startCtx.shadowBlur = 40;
+                startCtx.shadowColor = '#ffd700'; 
+                if (magicCircleImg.complete) {
+                    startCtx.drawImage(magicCircleImg, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                }
                 startCtx.restore();
 
                 ritualOpacity -= 0.02;
                 if (ritualOpacity <= 0) {
-                    ritualOpacity = 0; startScreen.style.display = 'none';
+                    ritualOpacity = 0;
+                    startScreen.style.display = 'none';
                     triggerCountdown(); 
                 }
             }
@@ -338,10 +413,21 @@
                 startCtx.save();
                 let dynamicFontSize = Math.min(36, Math.max(18, minDim * 0.062));
                 startCtx.font = `bold ${dynamicFontSize}px 'Cinzel Decorative', Georgia, serif`;
-                startCtx.textAlign = "center"; startCtx.textBaseline = "middle"; startCtx.letterSpacing = "2px";
-                startCtx.lineWidth = 2; startCtx.strokeStyle = "#000000";
-                startCtx.strokeText("KINETIC SORCERY", centerX, startCanvas.height * 0.71);
-                startCtx.fillStyle = "#ffcc00"; startCtx.fillText("KINETIC SORCERY", centerX, startCanvas.height * 0.71);
+                startCtx.textAlign = "center";
+                startCtx.textBaseline = "middle";
+                startCtx.letterSpacing = "2px";
+
+                let textY1 = H * 0.71; 
+                let textY2 = textY1 + (dynamicFontSize * 1.25); 
+
+                startCtx.lineWidth = 2;
+                startCtx.strokeStyle = "#000000";
+                startCtx.strokeText("KINETIC SORCERY", centerX, textY1);
+                startCtx.strokeText("ACADEMY", centerX, textY2);
+
+                startCtx.fillStyle = "#ffcc00";
+                startCtx.fillText("KINETIC SORCERY", centerX, textY1);
+                startCtx.fillText("ACADEMY", centerX, textY2);
                 startCtx.restore();
             }
 
@@ -352,11 +438,12 @@
         function triggerCountdown() {
             gameState = 'countdown';
             countdownOverlay.style.display = 'block';
-            document.getElementById('ritual-title').innerText = "遠古巨龍降臨：結界充能完畢";
+            document.getElementById('ritual-title').innerText = "巫師火原素特訓：巨龍逆襲頭目戰";
             document.getElementById('ritual-title').style.color = "#00d2ff";
-            document.getElementById('ritual-desc').innerText = "AI 臉部追蹤定位中，請對準相機...";
+            document.getElementById('ritual-desc').innerText = "注意防禦！AI 臉部追蹤充能中...";
             
-            initARAndTrackerEngines();
+            // 同步啟動 100% 純淨的魔杖追蹤與人臉網格
+            initTrackerAndAR();
 
             const romanNumerals = ["", "I", "II", "III"];
             let timer = setInterval(() => {
@@ -368,65 +455,116 @@
                     countdownOverlay.style.display = 'none';
                     document.getElementById('scoreboard').style.display = 'block';
                     
-                    hpBar.style.setProperty('display', 'flex', 'important'); 
-                    stoneFrame.style.display = 'block'; 
-                    
+                    // 正式 Playing 時彈出生命血條與符文石框
+                    hpBar.style.setProperty('display', 'flex', 'important');
+                    stoneFrame.style.display = 'block';
+
                     document.getElementById('ritual-title').innerText = "巫師火原素特訓：巨龍逆襲頭目戰";
                     document.getElementById('ritual-title').style.color = "#ff4500";
                     document.getElementById('ritual-desc').innerHTML = '擊落滾落火球！當巨龍停下時，請<span style="color:#ffd700;font-weight:bold;">擺動身體閃避</span>火焰射線！';
                     
                     gameState = 'playing';
                     gameStarted = true;
+                    spawnFireball();
                 }
             }, 1000);
         }
 
-        let enginesInitialized = false;
-        function initARAndTrackerEngines() {
-            if (enginesInitialized) return;
-            enginesInitialized = true;
+        // 100% 完美套用確定能精準擊破火球的原始 ColorTracker 顏色範圍與規則
+        tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
+            return (r > 165 && g < 55 && b < 55); 
+        });
+        const tracker = new tracking.ColorTracker(['magic_red']);
+        tracker.setMinDimension(7); 
 
-            const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-            faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-            faceMesh.onResults(onARFaceMeshResults);
+        let trackerInitialized = false;
+        function initTrackerAndAR() {
+            if (trackerInitialized) return;
+            trackerInitialized = true;
 
-            const camera = new Camera(video, {
-                onFrame: async () => { await faceMesh.send({ image: video }); },
-                width: 640, height: 480
-            });
-            camera.start();
+            // 1. 完全保留基準代碼的 getUserMedia 相機串流初始化，確保不產生鏡頭阻塞
+            const videoConstraints = {
+                audio: false,
+                video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } }
+            };
 
-            tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
-                return (r > 165 && g < 55 && b < 55); 
-            });
-            const colorTracker = new tracking.ColorTracker(['magic_red']);
-            colorTracker.setMinDimension(7);
-            colorTracker.on('track', function(event) {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia(videoConstraints)
+                    .then(function(stream) {
+                        video.srcObject = stream;
+                        video.play().catch(function(e) {});
+                    }).catch(function(err) {
+                        navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) { video.srcObject = stream; });
+                    });
+            }
+
+            // 2. 100% 原始準星追蹤綁定
+            tracker.on('track', function(event) {
                 if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
                     crosshair.hasTracking = false;
                     return;
                 }
-                let validTarget = event.data[0];
-                crosshair.hasTracking = true;
-                crosshair.targetX = canvas.width - (validTarget.x + validTarget.width / 2) * (canvas.width / 640);
-                crosshair.targetY = (validTarget.y + validTarget.height / 2) * (canvas.height / 480);
+                
+                let validTarget = null;
+                for (let i = 0; i < event.data.length; i++) {
+                    let rect = event.data[i];
+                    let aspect = rect.width / rect.height;
+                    if (aspect > 0.6 && aspect < 1.5 && rect.width < (canvas.width * 0.4)) {
+                        if (!validTarget || Math.abs(1 - aspect) < Math.abs(1 - (validTarget.width / validTarget.height))) {
+                            validTarget = rect;
+                        }
+                    }
+                }
+
+                if (validTarget) {
+                    crosshair.hasTracking = true;
+                    crosshair.targetX = canvas.width - (validTarget.x + validTarget.width / 2);
+                    crosshair.targetY = validTarget.y + validTarget.height / 2;
+                } else {
+                    crosshair.hasTracking = false;
+                }
             });
-            tracking.track('#webcam', colorTracker);
+            tracking.track('#webcam', tracker);
+
+            // 3. 獨立平行外掛 MediaPipe Face Mesh（AR 魔法帽跟隨）
+            const faceMesh = new FaceMesh({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+            });
+            faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            faceMesh.onResults(onARFaceMeshResults);
+
+            // 使用與基準代碼平行的微計時器向 Face Mesh 餵送畫面，絕不干擾色彩追蹤主線
+            setInterval(async () => {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    await faceMesh.send({ image: video });
+                }
+            }, 35);
         }
 
+        // 獨立人臉頂部座標幾何對齊
         function onARFaceMeshResults(results) {
             if (isGameOver || !results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
                 userHatAR.tracked = false;
                 return;
             }
             const landmarks = results.multiFaceLandmarks[0];
-            let scaleX = canvas.width;
-            let scaleY = canvas.height;
-            let forehead = landmarks[10];
-            
             userHatAR.tracked = true;
-            userHatAR.ivX = (1 - forehead.x) * scaleX;
-            userHatAR.ivY = forehead.y * scaleY - (canvas.height * 0.12); 
+            userHatAR.ivX = (1 - landmarks[10].x) * canvas.width;
+            userHatAR.ivY = landmarks[10].y * canvas.height - (canvas.height * 0.12);
+        }
+
+        // 100% 原始火球重生公式（修改為由巨龍位置發出）
+        function spawnFireball() {
+            if (isGameOver || gameState !== 'playing') return;
+            // 火球改從龍頭下方正中心出生
+            fireball.x = dragonBoss.x + dragonBoss.width / 2;
+            fireball.y = dragonBoss.y + dragonBoss.height * 0.7;
+            fireball.size = 2;
+            
+            let angle = Math.PI / 2 + (Math.random() - 0.5) * 0.5; // 朝向下方大約垂直的角度滾落
+            fireball.speedX = Math.cos(angle) * 1.8;
+            fireball.speedY = Math.sin(angle) * 1.8;
+            fireball.active = true;
         }
 
         function createExplosion(x, y, isLaser = false) {
@@ -434,37 +572,29 @@
             for (let i = 0; i < count; i++) {
                 explosions.push({
                     x: x, y: y, vx: (Math.random() - 0.5) * (isLaser ? 6 : 12), vy: (Math.random() - 0.5) * (isLaser ? 6 : 12),
-                    size: Math.random() * 5 + 2, alpha: 1,
+                    size: Math.random() * (isLaser ? 5 : 6) + 3, alpha: 1,
                     color: isLaser ? `hsl(${Math.random() * 20 + 10}, 100%, 75%)` : `hsl(${Math.random() * 30 + 15}, 100%, 60%)`
                 });
             }
         }
 
-        // 🛠️ 【核心行為狀態機優化】：獨立處理火球發射冷卻，與隨機移動總計時完美解耦
+        // 獨立巨龍 AI 狀態控制器
         function handleDragonBossAI() {
             dragonBoss.stateTimer--;
 
             if (dragonBoss.state === 'move') {
-                // 1. 左右游走
                 dragonBoss.x += dragonBoss.speedX;
                 if (dragonBoss.x <= 40 || dragonBoss.x >= canvas.width - dragonBoss.width - 40) {
                     dragonBoss.speedX *= -1;
                 }
 
-                // 2. 獨立計時火球發射冷卻：只要在 move 狀態下，無論第幾輪移動，冷卻到 0 且火球上限未滿就必然持續發射！
+                // 獨立火球冷卻計數器
                 if (dragonBoss.shootCooldown > 0) {
                     dragonBoss.shootCooldown--;
                 }
-
-                if (dragonBoss.shootCooldown <= 0 && fireballs.length < 5) {
-                    fireballs.push({
-                        x: dragonBoss.x + dragonBoss.width / 2,
-                        y: dragonBoss.y + dragonBoss.height * 0.7,
-                        size: 15,
-                        speedY: Math.random() * 2 + 2.5, 
-                        active: true
-                    });
-                    dragonBoss.shootCooldown = 32; // 設下約 0.5 秒的固定發射冷卻
+                if (dragonBoss.shootCooldown <= 0 && !fireball.active) {
+                    spawnFireball();
+                    dragonBoss.shootCooldown = 40; 
                 }
 
                 if (dragonBoss.stateTimer <= 0) {
@@ -486,7 +616,6 @@
                 dragonLaser.x = dragonBoss.x + dragonBoss.width / 2;
                 if (dragonBoss.stateTimer <= 0) {
                     dragonBoss.state = 'move';
-                    // 🛠️ 【修正點】：重設回游走時，同步將火球發射冷卻歸零，強迫巨龍一回歸游走就立刻重新產火球！
                     dragonBoss.stateTimer = Math.random() * 100 + 100;
                     dragonBoss.shootCooldown = 0; 
                     dragonLaser.active = false;
@@ -494,6 +623,7 @@
             }
         }
 
+        // 獨立受傷事件
         function triggerPlayerDamage() {
             if (invulnerableTimer > 0) return; 
 
@@ -518,39 +648,65 @@
             }
         }
 
+        function drawMagicCrosshair(x, y) {
+            crosshair.rotation += 0.04;
+            let dist = Math.hypot(x - fireball.x, y - fireball.y);
+            if (fireball.active && dist < 100 && fireball.size > 15) {
+                crosshair.targetSize = 25; ctx.strokeStyle = '#ff3333';
+            } else {
+                crosshair.targetSize = 35; ctx.strokeStyle = '#00d2ff';
+            }
+            crosshair.currentSize += (crosshair.targetSize - crosshair.currentSize) * 0.2;
+            let r = crosshair.currentSize;
+
+            ctx.save(); ctx.translate(x, y); ctx.rotate(crosshair.rotation);
+            ctx.lineWidth = 2; 
+            ctx.shadowBlur = 4; ctx.shadowColor = ctx.strokeStyle;
+            ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.setLineDash([6, 6]); ctx.stroke();
+            ctx.beginPath(); ctx.rect(-r*0.6, -r*0.6, r*1.2, r*1.2); ctx.setLineDash([]); ctx.lineWidth = 1; ctx.stroke();
+            ctx.restore();
+        }
+
         function gameLoop() {
-            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) resizeCanvases();
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                ctx.save(); ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height); ctx.restore();
-            }
-
-            if (gameStarted && !isGameOver) {
+            if (gameStarted && gameState === 'playing') {
                 if (invulnerableTimer > 0) invulnerableTimer--;
 
                 crosshair.x += (crosshair.targetX - crosshair.x) * 0.45;
                 crosshair.y += (crosshair.targetY - crosshair.y) * 0.45;
-
                 userHatAR.x += (userHatAR.ivX - userHatAR.x) * 0.6;
                 userHatAR.y += (userHatAR.ivY - userHatAR.y) * 0.6;
 
+                // 執行巨龍外掛狀態機
                 handleDragonBossAI();
 
+                // 粒子爆炸效果渲染
+                for (let i = 0; i < explosions.length; i++) {
+                    let p = explosions[i]; p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
+                    if (p.alpha <= 0) { explosions.splice(i, 1); i--; continue; }
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha; ctx.fill();
+                }
+                ctx.globalAlpha = 1.0;
+
+                // 巨龍連發火焰噴射射線
                 if (dragonLaser.active) {
                     ctx.save();
                     ctx.globalCompositeOperation = 'screen';
                     let grad = ctx.createLinearGradient(dragonLaser.x, dragonLaser.topY, dragonLaser.x, canvas.height);
                     grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.2, '#ffea00'); grad.addColorStop(0.6, '#ff5100'); grad.addColorStop(1, 'rgba(255,0,0,0)');
-                    
                     ctx.fillStyle = grad;
-                    let laserW = dragonLaser.width + Math.sin(Date.now() * 0.05) * 6; 
+                    let laserW = dragonLaser.width + Math.sin(Date.now() * 0.05) * 6;
                     ctx.fillRect(dragonLaser.x - laserW / 2, dragonLaser.topY, laserW, canvas.height - dragonLaser.topY);
-                    
                     if (Math.random() < 0.6) createExplosion(dragonLaser.x + (Math.random() - 0.5) * 20, Math.random() * (canvas.height - dragonLaser.topY) + dragonLaser.topY, true);
                     ctx.restore();
 
+                    // 火焰燃燒魔法帽碰撞判定
                     if (userHatAR.tracked && invulnerableTimer === 0) {
                         let hatLeft = userHatAR.x - userHatAR.width / 2;
                         let hatRight = userHatAR.x + userHatAR.width / 2;
@@ -560,31 +716,40 @@
                     }
                 }
 
-                for (let i = fireballs.length - 1; i >= 0; i--) {
-                    let fb = fireballs[i];
-                    if (!fb.active) { fireballs.splice(i, 1); continue; }
+                // 100% 原始火球飛行與碰撞攔截機制
+                if (!isGameOver) {
+                    if (!fireball.active) {
+                        // 由 dragonBoss 控制 spawnFireball
+                    } else {
+                        fireball.x += fireball.speedX; fireball.y += fireball.speedY;
+                        fireball.size += 0.6; 
+                        fireball.speedX *= 1.012; 
+                        fireball.speedY *= 1.012;
 
-                    fb.y += fb.speedY; 
+                        ctx.beginPath();
+                        let gradient = ctx.createRadialGradient(fireball.x, fireball.y, fireball.size*0.2, fireball.x, fireball.y, fireball.size);
+                        gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.2, '#ffdd00'); gradient.addColorStop(0.5, '#ff4500'); gradient.addColorStop(1, 'rgba(255,69,0,0)');
+                        ctx.fillStyle = gradient; ctx.arc(fireball.x, fireball.y, fireball.size, 0, Math.PI * 2); ctx.fill();
 
-                    ctx.save();
-                    let grad = ctx.createRadialGradient(fb.x, fb.y, fb.size * 0.1, fb.x, fb.y, fb.size);
-                    grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.3, '#ffcc00'); grad.addColorStop(0.6, '#ff4500'); grad.addColorStop(1, 'rgba(255,69,0,0)');
-                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(fb.x, fb.y, fb.size, 0, Math.PI * 2); ctx.fill();
-                    ctx.restore();
+                        // 💥 原始色彩追蹤與火球碰撞擊破演算法 - 完全保留
+                        if (crosshair.hasTracking && fireball.size > 15) {
+                            let distance = Math.hypot(crosshair.x - fireball.x, crosshair.y - fireball.y);
+                            if (distance < (fireball.size*0.7 + crosshair.currentSize)) {
+                                scoreSuccess++;
+                                document.getElementById('txt-success').innerText = scoreSuccess;
+                                createExplosion(fireball.x, fireball.y);
+                                fireball.active = false;
+                            }
+                        }
 
-                    if (crosshair.hasTracking) {
-                        let distance = Math.hypot(crosshair.x - fb.x, crosshair.y - fb.y);
-                        if (distance < (fb.size + crosshair.size)) {
-                            scoreSuccess++;
-                            createExplosion(fb.x, fb.y);
-                            fb.active = false;
-                            continue;
+                        // 火球滾落至臨界線判定（未擊落消失，火球本身不扣血，火焰射線才扣血）
+                        if (fireball.active && (fireball.size > 105 || fireball.y > canvas.height + 50)) {
+                            fireball.active = false;
                         }
                     }
-
-                    if (fb.y > canvas.height + 50) { fb.active = false; }
                 }
 
+                // 繪製巨龍 Boss 頭部
                 if (dragonImg.complete) {
                     ctx.save();
                     let offsetX = (dragonBoss.state === 'pre_laser') ? (Math.random() - 0.5) * 5 : 0;
@@ -592,6 +757,7 @@
                     ctx.restore();
                 }
 
+                // 繪製 AR 魔法帽
                 if (userHatAR.tracked && hatImg.complete) {
                     if (invulnerableTimer === 0 || Math.floor(invulnerableTimer / 4) % 2 === 0) {
                         ctx.save();
@@ -600,19 +766,8 @@
                     }
                 }
 
-                for (let i = explosions.length - 1; i >= 0; i--) {
-                    let p = explosions[i]; p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
-                    if (p.alpha <= 0) { explosions.splice(i, 1); continue; }
-                    ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                    ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha; ctx.fill(); ctx.restore();
-                }
-
                 if (crosshair.hasTracking) {
-                    crosshair.rotation += 0.04;
-                    ctx.save(); ctx.translate(crosshair.x, crosshair.y); ctx.rotate(crosshair.rotation);
-                    ctx.lineWidth = 2; ctx.strokeStyle = '#00d2ff'; ctx.shadowBlur = 4; ctx.shadowColor = '#00d2ff';
-                    ctx.beginPath(); ctx.arc(0, 0, crosshair.size, 0, Math.PI * 2); ctx.setLineDash([6, 6]); ctx.stroke();
-                    ctx.restore();
+                    drawMagicCrosshair(crosshair.x, crosshair.y);
                 }
             }
             requestAnimationFrame(gameLoop);
@@ -620,14 +775,13 @@
 
         function triggerGameOver() {
             isGameOver = true;
-            gameStarted = false;
-            dragonLaser.active = false;
-            fireballs = [];
+            fireball.active = false;
+            dangerGlowScreen.style.display = 'none';
+            dangerGlowScreen.classList.remove('pulse-effect');
             
             let details = document.getElementById('game-result-details');
             let mainTxt = document.getElementById('game-over-text');
-            
-            details.innerHTML = `成功攔截火球：<span style="color:#00d2ff; font-weight:bold;">${scoreSuccess}</span> 次<br>累計受傷扣血：<span style="color:#ff4500; font-weight:bold;">${scoreFailed}</span> 次`;
+            details.innerHTML = `成功攔截火球：<span style="color:#00d2ff; font-weight:bold;">${scoreSuccess}</span> 次<br>防線損失帽子：<span style="color:#ff4500; font-weight:bold;">${scoreFailed}</span> 頂`;
             
             if (scoreSuccess >= 25) {
                 mainTxt.innerText = "特訓評價：大魔法師"; mainTxt.style.color = "#ffd700"; mainTxt.style.textShadow = "0 0 20px #ffd700";
@@ -636,49 +790,12 @@
             } else {
                 mainTxt.innerText = "特訓評價：魔法學徒"; mainTxt.style.color = "#ff3333"; mainTxt.style.textShadow = "0 0 20px #ff3333";
             }
-            gameOverScreen.style.display = 'flex';
+            gameOverScreen.style.display = 'flex'; 
         }
 
+        // 按下重新挑戰後，直接網頁真·重新整理，徹底清空記憶體與執行緒
         function resetGame() {
-            scoreSuccess = 0;
-            scoreFailed = 0;
-            isGameOver = false;
-            gameStarted = false;
-            countdownNumber = 3;
-            nextRequiredPoint = 0;
-            ritualOpacity = 1.0;
-            invulnerableTimer = 0;
-            
-            wandTrail = [];
-            fireballs = [];
-            dragonLaser.active = false;
-            dragonBoss.state = 'move';
-            dragonBoss.stateTimer = 120;
-            dragonBoss.shootCooldown = 0; // 重置冷卻
-            
-            countdownOverlay.innerText = "III";
-            dangerGlowScreen.style.display = 'none';
-            gameOverScreen.style.display = 'none';
-            
-            for (let i = 1; i <= 5; i++) {
-                let hat = document.getElementById(`hp-hat-${i}`);
-                if (hat) hat.className = 'hp-hat-icon';
-            }
-
-            pentagramPoints.forEach(pt => pt.activated = false);
-            explosions = [];
-
-            gameState = 'cover';
-            startScreen.style.opacity = "1";
-            startScreen.style.display = 'flex';
-            document.getElementById('start-prompt').style.display = 'block';
-            document.getElementById('instruction').style.display = 'none';
-            document.getElementById('scoreboard').style.display = 'none';
-            
-            hpBar.style.setProperty('display', 'none', 'important');
-            stoneFrame.style.display = 'none';
-            
-            if (startCanvas.width !== window.innerWidth || startCanvas.height !== window.innerHeight) resizeCanvases();
+            window.location.reload(true);
         }
 
         resizeCanvases();
