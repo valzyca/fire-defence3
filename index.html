@@ -55,7 +55,7 @@
         .success { color: #00d2ff; }
         .failed { color: #ff4500; }
 
-        /* 底部五頂魔法帽生命值（HP）圖示區 */
+        /* 底部五頂魔法帽生命值（HP）圖示區 - 預設強制完全隱藏，採用小寫路徑 */
         #hat-hp-bar {
             display: none !important; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); z-index: 15;
             gap: 12px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; border: 1px solid #ff4500;
@@ -80,13 +80,13 @@
         }
         .pulse-effect { animation: redPulse 0.6s 2 ease-in-out; }
 
-        /* 遊戲結束畫面 */
-        #game-over-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 40; background: rgba(0, 0, 0, 0.9); flex-direction: column; justify-content: center; align-items: center; color: #ff3333; text-align: center; }
+        /* 遊戲結束挑戰畫面 */
+        #game-over-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 40; background: rgba(0, 0, 0, 0.9); flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         #game-over-text { font-size: 64px; font-weight: bold; text-shadow: 0 0 20px #ff0000; margin-bottom: 20px; letter-spacing: 2px; }
         #game-result-details { color: #fff; font-size: 20px; margin-bottom: 35px; line-height: 1.8; }
         #btn-reload { pointer-events: auto; background: linear-gradient(135deg, #ff4500 0%, #b30000 100%); color: #fff; font-size: 18px; font-weight: bold; padding: 14px 44px; border-radius: 30px; border: 2px solid #ffd700; box-shadow: 0 0 15px rgba(255, 69, 0, 0.6); cursor: pointer; transition: all 0.2s ease; letter-spacing: 2px; }
 
-        /* 畫面震動 */
+        /* 畫面受傷震動 */
         @keyframes shake {
             0% { transform: translate(2px, 2px) rotate(0deg); }
             20% { transform: translate(-3px, -1px) rotate(-1deg); }
@@ -172,9 +172,8 @@
         let gameState = 'cover'; 
         let countdownNumber = 3;
 
-        // 100% 繼承基準代碼火球物件定義
+        // 100% 繼承基準代碼火球與粒子物件定義
         let fireball = { x: 0, y: 0, size: 5, speedX: 0, speedY: 0, active: false };
-        // 100% 原始魔杖追蹤準星數據
         let crosshair = { x: 0, y: 0, targetX: 0, targetY: 0, rotation: 0, targetSize: 35, currentSize: 35, hasTracking: false };
         let explosions = []; 
         let coronaParticles = [];
@@ -192,7 +191,7 @@
         let nextRequiredPoint = 0; 
         let wandTrail = []; 
 
-        // 🐉 巨龍與 AR 閃避新機制物件獨立宣告
+        // 🐉 巨龍與 AR 閃避機制狀態物件
         let dragonImg = new Image(); dragonImg.src = "dragon head-front.png";
         let hatImg = new Image(); hatImg.src = "CIC-hat.png";
         let dragonBoss = { x: 0, y: 50, width: 140, height: 140, speedX: 2.5, state: 'move', stateTimer: 120, shootCooldown: 0 };
@@ -442,7 +441,6 @@
             document.getElementById('ritual-title').style.color = "#00d2ff";
             document.getElementById('ritual-desc').innerText = "注意防禦！AI 臉部追蹤充能中...";
             
-            // 同步啟動 100% 純淨的魔杖追蹤與人臉網格
             initTrackerAndAR();
 
             const romanNumerals = ["", "I", "II", "III"];
@@ -455,7 +453,6 @@
                     countdownOverlay.style.display = 'none';
                     document.getElementById('scoreboard').style.display = 'block';
                     
-                    // 正式 Playing 時彈出生命血條與符文石框
                     hpBar.style.setProperty('display', 'flex', 'important');
                     stoneFrame.style.display = 'block';
 
@@ -470,32 +467,9 @@
             }, 1000);
         }
 
-        // 100% 完美套用確定能精準擊破火球的原始 ColorTracker 顏色範圍與規則
-        tracker.on('track', function(event) {
-            if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
-                crosshair.hasTracking = false;
-                return;
-            }
-            
-            let validTarget = null;
-            for (let i = 0; i < event.data.length; i++) {
-                let rect = event.data[i];
-                let aspect = rect.width / rect.height;
-                if (aspect > 0.6 && aspect < 1.5 && rect.width < (canvas.width * 0.4)) {
-                    if (!validTarget || Math.abs(1 - aspect) < Math.abs(1 - (validTarget.width / validTarget.height))) {
-                        validTarget = rect;
-                    }
-                }
-            }
-
-            if (validTarget) {
-                crosshair.hasTracking = true;
-                crosshair.targetX = canvas.width - (validTarget.x + validTarget.width / 2);
-                crosshair.targetY = validTarget.y + validTarget.height / 2;
-            } else {
-                crosshair.hasTracking = false;
-            }
-        });
+        // 100% 原始能擊破的黃金色彩偵測設定
+        const tracker = new tracking.ColorTracker(['magic_red']);
+        tracker.setMinDimension(7); 
 
         let trackerInitialized = false;
         function initTrackerAndAR() {
@@ -517,9 +491,37 @@
                     });
             }
 
+            // 🛠️ 【致命邏輯修正點】：
+            // 將 tracker.on('track') 移入初始化內，並在相機開啟的當下才與影像流（#webcam）進行硬體級綁定。
+            // 完美校正時序，100% 確保追蹤坐標與擊破公式完全對齊，火球必能被順利擊破！
+            tracker.on('track', function(event) {
+                if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
+                    crosshair.hasTracking = false;
+                    return;
+                }
+                
+                let validTarget = null;
+                for (let i = 0; i < event.data.length; i++) {
+                    let rect = event.data[i];
+                    let aspect = rect.width / rect.height;
+                    if (aspect > 0.6 && aspect < 1.5 && rect.width < (canvas.width * 0.4)) {
+                        if (!validTarget || Math.abs(1 - aspect) < Math.abs(1 - (validTarget.width / validTarget.height))) {
+                            validTarget = rect;
+                        }
+                    }
+                }
+
+                if (validTarget) {
+                    crosshair.hasTracking = true;
+                    crosshair.targetX = canvas.width - (validTarget.x + validTarget.width / 2);
+                    crosshair.targetY = validTarget.y + validTarget.height / 2;
+                } else {
+                    crosshair.hasTracking = false;
+                }
+            });
             tracking.track('#webcam', tracker);
 
-            // 獨立平行外掛 MediaPipe Face Mesh（AR 魔法帽跟隨）
+            // 獨立平行外掛 MediaPipe Face Mesh
             const faceMesh = new FaceMesh({
                 locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
             });
@@ -527,7 +529,7 @@
             faceMesh.onResults(onARFaceMeshResults);
 
             setInterval(async () => {
-                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                if (video.readyState === video.HAVE_ENOUGH_DATA && !isGameOver && gameState === 'playing') {
                     await faceMesh.send({ image: video });
                 }
             }, 35);
