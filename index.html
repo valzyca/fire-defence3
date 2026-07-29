@@ -24,7 +24,7 @@
         /* 遊戲與特效主畫布 */
         #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
         
-        /* 符文石雕自適應遊戲外框 */
+        /* 符文自適應外框 */
         #game-stone-frame {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; box-sizing: border-box;
             border-style: solid; border-width: 40px; border-image: url('stone carving.png') 250 repeat;
@@ -53,10 +53,10 @@
         .success { color: #00d2ff; }
         .failed { color: #ff4500; }
 
-        /* 🛠️ 全新底部五頂魔法帽生命值（HP）圖示區 */
+        /* 底部五頂魔法帽生命值（HP）圖示區 - 預設強制完全隱藏 */
         #hat-hp-bar {
-            display: none; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); z-index: 15;
-            display: flex; gap: 12px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; border: 1px solid #ff4500;
+            display: none !important; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); z-index: 15;
+            gap: 12px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; border: 1px solid #ff4500;
         }
         .hp-hat-icon { width: 35px; height: 35px; object-fit: contain; transition: all 0.3s ease; filter: drop-shadow(0 0 5px #ffd700); }
         .hp-hat-lost { opacity: 0.2; filter: grayscale(1) drop-shadow(0 0 0px transparent); transform: scale(0.8); }
@@ -83,7 +83,6 @@
         #game-over-text { font-size: clamp(32px, 5vh, 56px); font-weight: bold; margin-bottom: 15px; letter-spacing: 2px; }
         #game-result-details { color: #fff; font-size: 20px; margin-bottom: 35px; line-height: 1.8; }
         #btn-reload { pointer-events: auto; background: linear-gradient(135deg, #ff4500 0%, #b30000 100%); color: #fff; font-size: 18px; font-weight: bold; padding: 14px 44px; border-radius: 30px; border: 2px solid #ffd700; box-shadow: 0 0 15px rgba(255, 69, 0, 0.6); cursor: pointer; transition: all 0.2s ease; letter-spacing: 2px; }
-        #btn-reload:active { transform: scale(0.95); }
 
         /* 畫面受傷震動 */
         @keyframes shake {
@@ -134,13 +133,13 @@
         <div>防禦失敗：<span id="txt-failed" class="failed">0</span> 次</div>
     </div>
 
-    <!-- 🛠️ 底部五頂魔法帽生命值血條 -->
+    <!-- 底部五頂魔法帽生命值血條 - 🛠️ 已精準修正為小寫的 .png 圖檔路徑 -->
     <div id="hat-hp-bar">
-        <img src="CIC-hat.PNG" class="hp-hat-icon" id="hp-hat-1">
-        <img src="CIC-hat.PNG" class="hp-hat-icon" id="hp-hat-2">
-        <img src="CIC-hat.PNG" class="hp-hat-icon" id="hp-hat-3">
-        <img src="CIC-hat.PNG" class="hp-hat-icon" id="hp-hat-4">
-        <img src="CIC-hat.PNG" class="hp-hat-icon" id="hp-hat-5">
+        <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-1">
+        <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-2">
+        <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-3">
+        <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-4">
+        <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-5">
     </div>
 
     <!-- 遊戲結束與重新挑戰畫面 -->
@@ -165,21 +164,20 @@
 
         let gameStarted = false;
         let scoreSuccess = 0;
-        let scoreFailed = 0; // 記錄受傷扣血次數，累計滿 5 次結束
+        let scoreFailed = 0; 
         let isGameOver = false;
 
         let gameState = 'cover'; 
         let countdownNumber = 3;
 
-        // 🛠️ 載入新需求圖檔資產
         let dragonImg = new Image(); dragonImg.src = "dragon head-front.png";
-        let hatImg = new Image(); hatImg.src = "CIC-hat.PNG";
+        // 🛠️ 核心資產圖檔同步正名為小寫的 .png 
+        let hatImg = new Image(); hatImg.src = "CIC-hat.png";
         let magicCircleImg = new Image(); magicCircleImg.src = "bg.png"; 
         let bg1Img = new Image(); bg1Img.src = "bg-1.png";
 
-        // 🛠️ 重塑中間核心物件狀態
         let dragonBoss = { x: 0, y: 50, width: 140, height: 140, speedX: 2.5, targetX: 0, state: 'move', stateTimer: 120 };
-        let fireballs = []; // 支援多顆火球同時掉落滾動
+        let fireballs = []; 
         let dragonLaser = { active: false, x: 0, topY: 0, width: 35, alpha: 0 };
         let userHatAR = { x: 0, y: 0, width: 110, height: 110, tracked: false, ivX: 0, ivY: 0 };
         
@@ -189,7 +187,7 @@
         let circleRotation = 0; let bg1Rotation = 0; let ritualOpacity = 1.0; 
 
         let pentagramPoints = []; let nextRequiredPoint = 0; let wandTrail = []; 
-        let invulnerableTimer = 0; // 受傷短暫無敵免疫閃爍時間
+        let invulnerableTimer = 0; 
 
         function resizeCanvases() {
             canvas.width = window.innerWidth;
@@ -369,8 +367,10 @@
                     clearInterval(timer);
                     countdownOverlay.style.display = 'none';
                     document.getElementById('scoreboard').style.display = 'block';
-                    hpBar.style.display = 'flex'; // 顯示血條
-                    stoneFrame.style.display = 'block'; // 顯示外框
+                    
+                    // 🛠️ 【啟動設定】：倒數完畢、遊戲正式 Playing 時，才動態顯現五頂魔法帽 Icon 與石雕外框
+                    hpBar.style.setProperty('display', 'flex', 'important'); 
+                    stoneFrame.style.display = 'block'; 
                     
                     document.getElementById('ritual-title').innerText = "巫師火原素特訓：巨龍逆襲頭目戰";
                     document.getElementById('ritual-title').style.color = "#ff4500";
@@ -387,7 +387,6 @@
             if (enginesInitialized) return;
             enginesInitialized = true;
 
-            // 1. 初始化人臉追蹤（帽子追蹤）
             const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
             faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
             faceMesh.onResults(onARFaceMeshResults);
@@ -398,7 +397,6 @@
             });
             camera.start();
 
-            // 2. 初始化魔杖紅色追蹤（擊落火球）
             tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
                 return (r > 165 && g < 55 && b < 55); 
             });
@@ -417,24 +415,19 @@
             tracking.track('#webcam', colorTracker);
         }
 
-        // 🛠️ 魔法帽即時 AR 追蹤
         function onARFaceMeshResults(results) {
             if (isGameOver || !results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
                 userHatAR.tracked = false;
                 return;
             }
             const landmarks = results.multiFaceLandmarks[0];
-
             let scaleX = canvas.width;
             let scaleY = canvas.height;
-
-            // 抓取額頭上方中央點（Landmark 10）與頭頂邊緣（Landmark 152作為比例基準參考）
             let forehead = landmarks[10];
             
-            // 計算 Canvas 上的映射座標（因視訊有左右鏡像，X軸需做對稱轉換）
             userHatAR.tracked = true;
             userHatAR.ivX = (1 - forehead.x) * scaleX;
-            userHatAR.ivY = forehead.y * scaleY - (canvas.height * 0.12); // 將帽子往頭頂上方位移
+            userHatAR.ivY = forehead.y * scaleY - (canvas.height * 0.12); 
         }
 
         function createExplosion(x, y, isLaser = false) {
@@ -448,47 +441,41 @@
             }
         }
 
-        // 🛠️ 處理巨龍 Boss 的行為狀態機
         function handleDragonBossAI() {
             dragonBoss.stateTimer--;
 
             if (dragonBoss.state === 'move') {
-                // 左右平移移動
                 dragonBoss.x += dragonBoss.speedX;
                 if (dragonBoss.x <= 40 || dragonBoss.x >= canvas.width - dragonBoss.width - 40) {
                     dragonBoss.speedX *= -1;
                 }
 
-                // 移動時機率性掉落火球
                 if (dragonBoss.stateTimer % 28 === 0 && fireballs.length < 5) {
                     fireballs.push({
                         x: dragonBoss.x + dragonBoss.width / 2,
                         y: dragonBoss.y + dragonBoss.height * 0.7,
                         size: 15,
-                        speedY: Math.random() * 2 + 2.5, // 垂直向下滾落
+                        speedY: Math.random() * 2 + 2.5, 
                         active: true
                     });
                 }
 
-                // 時間到，巨龍隨機停下準備發射火焰
                 if (dragonBoss.stateTimer <= 0) {
                     dragonBoss.state = 'pre_laser';
-                    dragonBoss.stateTimer = 45; // 蓄力警告時間
+                    dragonBoss.stateTimer = 45; 
                 }
             } 
             else if (dragonBoss.state === 'pre_laser') {
-                // 蓄力狀態：巨龍原地顫抖警告
                 dragonBoss.x += (Math.random() - 0.5) * 3;
                 if (dragonBoss.stateTimer <= 0) {
                     dragonBoss.state = 'laser';
-                    dragonBoss.stateTimer = 100; // 持續噴火時間
+                    dragonBoss.stateTimer = 100; 
                     dragonLaser.active = true;
                     dragonLaser.x = dragonBoss.x + dragonBoss.width / 2;
                     dragonLaser.topY = dragonBoss.y + dragonBoss.height * 0.7;
                 }
             } 
             else if (dragonBoss.state === 'laser') {
-                // 噴射火焰狀態
                 dragonLaser.x = dragonBoss.x + dragonBoss.width / 2;
                 if (dragonBoss.stateTimer <= 0) {
                     dragonBoss.state = 'move';
@@ -498,18 +485,15 @@
             }
         }
 
-        // 🛠️ 觸發受傷扣血機制
         function triggerPlayerDamage() {
-            if (invulnerableTimer > 0) return; // 處於無敵防護時間則不重複扣血
+            if (invulnerableTimer > 0) return; 
 
             scoreFailed++;
-            invulnerableTimer = 60; // 觸發 60 幀的無敵閃爍時間
+            invulnerableTimer = 60; 
 
-            // 更新底部魔法帽血條 UI
             let lostHat = document.getElementById(`hp-hat-${6 - scoreFailed}`);
-            if (lostHat) lostHat.classList.add('pulse-effect', 'hp-hat-lost');
+            if (lostHat) lostHat.classList.add('hp-hat-lost');
 
-            // 畫面受傷特效震動與紅色呼吸警告層
             document.body.classList.add('shake-effect');
             dangerGlowScreen.style.display = 'block';
             dangerGlowScreen.classList.add('pulse-effect');
@@ -529,7 +513,6 @@
             if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) resizeCanvases();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 1. 繪製相機鏡像背景
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 ctx.save(); ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height); ctx.restore();
@@ -538,52 +521,41 @@
             if (gameStarted && !isGameOver) {
                 if (invulnerableTimer > 0) invulnerableTimer--;
 
-                // 魔杖準星平滑移動
                 crosshair.x += (crosshair.targetX - crosshair.x) * 0.45;
                 crosshair.y += (crosshair.targetY - crosshair.y) * 0.45;
 
-                // 帽子隨人臉平滑跟隨
                 userHatAR.x += (userHatAR.ivX - userHatAR.x) * 0.6;
                 userHatAR.y += (userHatAR.ivY - userHatAR.y) * 0.6;
 
-                // 2. 驅動巨龍 Boss 運算
                 handleDragonBossAI();
 
-                // 3. 繪製持續火焰射線
                 if (dragonLaser.active) {
                     ctx.save();
                     ctx.globalCompositeOperation = 'screen';
                     let grad = ctx.createLinearGradient(dragonLaser.x, dragonLaser.topY, dragonLaser.x, canvas.height);
-                    grad.addColorStop(0, '#ffffff');
-                    grad.addColorStop(0.2, '#ffea00');
-                    grad.addColorStop(0.6, '#ff5100');
-                    grad.addColorStop(1, 'rgba(255,0,0,0)');
+                    grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.2, '#ffea00'); grad.addColorStop(0.6, '#ff5100'); grad.addColorStop(1, 'rgba(255,0,0,0)');
                     
                     ctx.fillStyle = grad;
-                    let laserW = dragonLaser.width + Math.sin(Date.now() * 0.05) * 6; // 動態火焰顫抖感
+                    let laserW = dragonLaser.width + Math.sin(Date.now() * 0.05) * 6; 
                     ctx.fillRect(dragonLaser.x - laserW / 2, dragonLaser.topY, laserW, canvas.height - dragonLaser.topY);
                     
-                    // 火焰粒子微粒效果
                     if (Math.random() < 0.6) createExplosion(dragonLaser.x + (Math.random() - 0.5) * 20, Math.random() * (canvas.height - dragonLaser.topY) + dragonLaser.topY, true);
                     ctx.restore();
 
-                    // 🔥 【火焰碰撞判定】：檢查火焰射線是否燒到玩家頭頂的 AR 魔法帽
                     if (userHatAR.tracked && invulnerableTimer === 0) {
                         let hatLeft = userHatAR.x - userHatAR.width / 2;
                         let hatRight = userHatAR.x + userHatAR.width / 2;
-                        // 火焰是一條垂直向下的射線，只要帽子的橫向範圍與火焰射線重疊，且高度在射線下方，即算燒到
                         if (hatLeft < (dragonLaser.x + laserW/2) && hatRight > (dragonLaser.x - laserW/2) && userHatAR.y > dragonLaser.topY) {
                             triggerPlayerDamage();
                         }
                     }
                 }
 
-                // 4. 繪製並更新掉落的火球群
                 for (let i = fireballs.length - 1; i >= 0; i--) {
                     let fb = fireballs[i];
                     if (!fb.active) { fireballs.splice(i, 1); continue; }
 
-                    fb.y += fb.speedY; // 火球垂直滾落
+                    fb.y += fb.speedY; 
 
                     ctx.save();
                     let grad = ctx.createRadialGradient(fb.x, fb.y, fb.size * 0.1, fb.x, fb.y, fb.size);
@@ -591,7 +563,6 @@
                     ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(fb.x, fb.y, fb.size, 0, Math.PI * 2); ctx.fill();
                     ctx.restore();
 
-                    // 💥 【魔杖擊落判定】：檢查追蹤準星是否碰觸到火球
                     if (crosshair.hasTracking) {
                         let distance = Math.hypot(crosshair.x - fb.x, crosshair.y - fb.y);
                         if (distance < (fb.size + crosshair.size)) {
@@ -602,22 +573,16 @@
                         }
                     }
 
-                    // 如果火球滾落超過螢幕底部，安全消失（火球沒擊落不扣血，火焰燒到帽子才扣血）
-                    if (fb.y > canvas.height + 50) {
-                        fb.active = false;
-                    }
+                    if (fb.y > canvas.height + 50) { fb.active = false; }
                 }
 
-                // 5. 繪製巨龍 Boss
                 if (dragonImg.complete) {
                     ctx.save();
-                    // 蓄力噴火前身體震動警告特效
                     let offsetX = (dragonBoss.state === 'pre_laser') ? (Math.random() - 0.5) * 5 : 0;
                     ctx.drawImage(dragonImg, dragonBoss.x + offsetX, dragonBoss.y, dragonBoss.width, dragonBoss.height);
                     ctx.restore();
                 }
 
-                // 6. 繪製 AR 魔法帽子（受傷無敵時間會產生閃爍效果）
                 if (userHatAR.tracked && hatImg.complete) {
                     if (invulnerableTimer === 0 || Math.floor(invulnerableTimer / 4) % 2 === 0) {
                         ctx.save();
@@ -626,7 +591,6 @@
                     }
                 }
 
-                // 7. 更新並繪製爆炸粒子
                 for (let i = explosions.length - 1; i >= 0; i--) {
                     let p = explosions[i]; p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
                     if (p.alpha <= 0) { explosions.splice(i, 1); continue; }
@@ -634,7 +598,6 @@
                     ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha; ctx.fill(); ctx.restore();
                 }
 
-                // 8. 繪製魔杖追蹤準星
                 if (crosshair.hasTracking) {
                     crosshair.rotation += 0.04;
                     ctx.save(); ctx.translate(crosshair.x, crosshair.y); ctx.rotate(crosshair.rotation);
@@ -657,7 +620,6 @@
             
             details.innerHTML = `成功攔截火球：<span style="color:#00d2ff; font-weight:bold;">${scoreSuccess}</span> 次<br>累計受傷扣血：<span style="color:#ff4500; font-weight:bold;">${scoreFailed}</span> 次`;
             
-            // 保留原本的魔法師評價機制
             if (scoreSuccess >= 25) {
                 mainTxt.innerText = "特訓評價：大魔法師"; mainTxt.style.color = "#ffd700"; mainTxt.style.textShadow = "0 0 20px #ffd700";
             } else if (scoreSuccess >= 12) {
@@ -676,7 +638,6 @@
             countdownNumber = 3;
             nextRequiredPoint = 0;
             ritualOpacity = 1.0;
-            startCtx.globalAlpha = 1.0;
             invulnerableTimer = 0;
             
             wandTrail = [];
@@ -689,7 +650,6 @@
             dangerGlowScreen.style.display = 'none';
             gameOverScreen.style.display = 'none';
             
-            // 重置底部血條魔法帽樣式
             for (let i = 1; i <= 5; i++) {
                 let hat = document.getElementById(`hp-hat-${i}`);
                 if (hat) hat.className = 'hp-hat-icon';
@@ -704,9 +664,12 @@
             document.getElementById('start-prompt').style.display = 'block';
             document.getElementById('instruction').style.display = 'none';
             document.getElementById('scoreboard').style.display = 'none';
-            hpBar.style.display = 'none';
+            
+            // 重置時強制把生命帽與石雕外框完全隱藏
+            hpBar.style.setProperty('display', 'none', 'important');
             stoneFrame.style.display = 'none';
-            resizeCanvases();
+            
+            if (startCanvas.width !== window.innerWidth || startCanvas.height !== window.innerHeight) resizeCanvases();
         }
 
         resizeCanvases();
