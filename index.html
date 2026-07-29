@@ -1,1 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Kinetic Sorcery - 巫師火原素特訓</title>
+    
+    <!-- Google Fonts 史詩級魔法書寫風格字型 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
+    
+    <!-- 引入核心的顏色追蹤庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/tracking-min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: 'PingFang TC', sans-serif; }
+        
+        /* 相機畫面全螢幕背景 */
+        #webcam { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; transform: scaleX(-1); }
+        
+        /* 遊戲與特效主畫布 */
+        #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+        
+        /* 初始主畫面 Cover 層 */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+            background-color: #000; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        #start-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 11; }
+        
+        #start-ui { position: relative; z-index: 12; text-align: center; pointer-events: none; width: 100%; height: 100%; }
+        
+        #start-prompt { 
+            position: absolute; left: 50%; top: 61%; transform: translate(-50%, -50%); width: 100%;
+            font-size: clamp(13px, 2.2vh, 20px); color: #ffd700; -webkit-text-stroke: 0px transparent !important; text-stroke: 0px transparent !important; 
+            text-shadow: 0 0 8px #ff4500, 0 0 15px #ff0000; animation: pulseGlow 2s infinite ease-in-out; font-weight: bold; letter-spacing: 3px; margin: 0;
+        }
 
+        @keyframes pulseGlow { 0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.97); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); } }
+
+        /* 頂部引進與狀態引導 */
+        #instruction { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 3; background: rgba(0,0,0,0.75); color: #fff; padding: 12px 24px; border-radius: 30px; border: 1px solid #ff4500; text-align: center; box-shadow: 0 0 15px rgba(255, 69, 0, 0.4); display: none; }
+        
+        /* 右下角魔法計數器 */
+        #scoreboard { position: absolute; bottom: 20px; right: 20px; z-index: 3; background: rgba(0,0,0,0.8); color: #fff; padding: 15px; border-radius: 12px; border: 2px solid #00d2ff; font-weight: bold; font-size: 16px; line-height: 1.6; box-shadow: 0 0 10px rgba(0, 210, 255, 0.3); display: none; }
+        .success { color: #00d2ff; }
+        .failed { color: #ff4500; }
+
+        /* 全螢幕巨大倒數計時文字 */
+        #countdown-overlay {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 5; font-family: 'Cinzel Decorative', Georgia, serif; font-size: 120px; font-weight: bold;
+            color: #ffd700; text-shadow: 0 0 30px #ff4500, 0 0 60px #ff0000; pointer-events: none;
+        }
+
+        /* 全螢幕紅色呼吸警告層 */
+        #danger-glow-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; box-shadow: inset 0 0 100px rgba(255, 0, 0, 0.8); background-color: rgba(255, 0, 0, 0); }
+
+        @keyframes redPulse {
+            0% { background-color: rgba(255, 0, 0, 0.0); box-shadow: inset 0 0 60px rgba(255, 0, 0, 0.5); }
+            50% { background-color: rgba(255, 0, 0, 0.25); box-shadow: inset 0 0 120px rgba(255, 0, 0, 0.9); }
+            100% { background-color: rgba(255, 0, 0, 0.0); box-shadow: inset 0 0 60px rgba(255, 0, 0, 0.5); }
+        }
+        .pulse-effect { animation: redPulse 1.8s infinite ease-in-out; }
+
+        /* 遊戲結束畫面 */
+        #game-over-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; background: rgba(0, 0, 0, 0.85); flex-direction: column; justify-content: center; align-items: center; color: #ff3333; text-align: center; cursor: pointer; }
+        #game-over-text { font-size: 64px; font-weight: bold; text-shadow: 0 0 20px #ff0000; margin-bottom: 20px; letter-spacing: 2px; }
+        #restart-hint { color: #aaaaaa; font-size: 18px; animation: blink 1.5s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* 畫面震動 */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            100% { transform: translate(1px, -2px) rotate(0deg); }
+        }
+        .shake-effect { animation: shake 0.4s; animation-iteration-count: 1; }
+    </style>
+</head>
+<body>
+
+    <!-- 初始主畫面 -->
+    <div id="start-screen">
+        <canvas id="start-canvas"></canvas>
+        <div id="start-ui">
+            <div id="start-prompt">─ 點擊螢幕 喚醒魔杖 ─</div>
+        </div>
+    </div>
+
+    <!-- 實時鏡頭 -->
+    <video id="webcam" preload autoplay loop muted playsinline></video>
+    
+    <!-- 遊戲特效層 -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 危機紅色呼吸層 -->
+    <div id="danger-glow-screen"></div>
+
+    <!-- 羅馬數字巨大倒數計時層 -->
+    <div id="countdown-overlay">III</div>
+
+    <!-- 提示 UI -->
+    <div id="instruction">
+        <strong id="ritual-title" style="color: #ffd700;">結界啟動中...</strong><br>
+        <span id="ritual-desc" style="font-size: 13px;">請用手指在圓圈內依序滑過藍色發光點，一筆畫畫出五芒星！</span>
+    </div>
+
+    <!-- 右下角計數器 -->
+    <div id="scoreboard">
+        <div>成功攔截：<span id="txt-success" class="success">0</span> 次</div>
+        <div>防禦失敗：<span id="txt-failed" class="failed">0</span> 次</div>
+    </div>
+
+    <!-- 失敗退出畫面 -->
+    <div id="game-over-screen" onclick="resetGame()">
+        <div id="game-over-text">You're Fail.</div>
+        <div id="restart-hint">點擊畫面重新挑戰</div>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('start-screen');
+        const startCanvas = document.getElementById('start-canvas');
+        const startCtx = startCanvas.getContext('2d');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const dangerGlowScreen = document.getElementById('danger-glow-screen');
+        const countdownOverlay = document.getElementById('countdown-overlay');
+
+        let gameStarted = false;
+        let scoreSuccess = 0;
+        let scoreFailed = 0;
+        let isGameOver = false;
+
+        let gameState = 'cover'; 
+        let countdownNumber = 3;
+
+        let fireball = { x: 0, y: 0, size: 5, speedX: 0, speedY: 0, active: false };
+        let crosshair = { x: 0, y: 0, targetX: 0, targetY: 0, rotation: 0, targetSize: 35, currentSize: 35, hasTracking: false };
+        let explosions = []; 
+        let coronaParticles = [];
+        
+        let magicCircleImg = new Image();
+        let bg1Img = new Image();
+        let circleRotation = 0;
+        let bg1Rotation = 0;
+        let ritualOpacity = 1.0; 
+
+        magicCircleImg.src = "bg.png"; 
+        bg1Img.src = "bg-1.png";
+
+        let pentagramPoints = []; 
+        let nextRequiredPoint = 0; 
+        let wandTrail = []; 
+
+        function resizeCanvases() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            startCanvas.width = window.innerWidth;
+            startCanvas.height = window.innerHeight;
+            generatePentagramPoints();
+        }
+        window.addEventListener('resize', resizeCanvases);
+
+        function generatePentagramPoints() {
+            let centerX = startCanvas.width / 2;
+            let W = startCanvas.width;
+            let H = startCanvas.height;
+            let minDim = Math.min(W, H);
+            let circleCenterY = H * 0.34;
+            let radius = minDim * 0.26; 
+
+            pentagramPoints = [];
+            let drawOrderAngles = [ -Math.PI/2, Math.PI*0.7, -Math.PI*0.9, Math.PI*0.3, Math.PI*0.1 ];
+            
+            for(let i=0; i<5; i++) {
+                let angle = drawOrderAngles[i];
+                pentagramPoints.push({
+                    x: centerX + Math.cos(angle) * radius,
+                    y: circleCenterY + Math.sin(angle) * radius,
+                    activated: false
+                });
+            }
+        }
+
+        function handleTouchMove(e) {
+            if (gameState !== 'drawing') return;
+            e.preventDefault();
+            
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            wandTrail.push({ x: clientX, y: clientY });
+            if (wandTrail.length > 30) wandTrail.shift();
+
+            let targetPt = pentagramPoints[nextRequiredPoint];
+            if (targetPt) {
+                let dist = Math.hypot(clientX - targetPt.x, clientY - targetPt.y);
+                if (dist < 40) { 
+                    targetPt.activated = true;
+                    nextRequiredPoint++;
+                    if (nextRequiredPoint >= 5) {
+                        gameState = 'success_anim';
+                    }
+                }
+            }
+        }
+
+        startScreen.addEventListener('mousedown', (e) => {
+            if(gameState === 'cover') { gameState = 'drawing'; document.getElementById('start-prompt').style.display = 'none'; document.getElementById('instruction').style.display = 'block'; }
+        });
+        startScreen.addEventListener('mousemove', handleTouchMove);
+        
+        startScreen.addEventListener('touchstart', (e) => {
+            if(gameState === 'cover') { gameState = 'drawing'; document.getElementById('start-prompt').style.display = 'none'; document.getElementById('instruction').style.display = 'block'; }
+        }, { passive: false });
+        startScreen.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+        function updateStartScreen() {
+            if (gameStarted && gameState === 'playing') return;
+
+            if (startCanvas.width !== window.innerWidth || startCanvas.height !== window.innerHeight) {
+                resizeCanvases();
+            }
+            
+            startCtx.fillStyle = '#000000';
+            startCtx.fillRect(0, 0, startCanvas.width, startCanvas.height);
+
+            let W = startCanvas.width;
+            let H = startCanvas.height;
+            let centerX = W / 2;
+            let minDim = Math.min(W, H);
+            let circleCenterY = H * 0.34;
+
+            startCtx.save();
+            startCtx.globalAlpha = ritualOpacity;
+
+            if (gameState === 'cover' || gameState === 'success_anim') {
+                if (coronaParticles.length < 120) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let speed = Math.random() * 2 + 1.5; 
+                    coronaParticles.push({
+                        x: centerX + Math.cos(angle) * (minDim * 0.25),
+                        y: circleCenterY + Math.sin(angle) * (minDim * 0.25),
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: Math.random() * 30 + 20, maxLife: 50, size: Math.random() * 25 + 15
+                    });
+                }
+                startCtx.save();
+                startCtx.globalCompositeOperation = 'screen';
+                for (let i = coronaParticles.length - 1; i >= 0; i--) {
+                    let p = coronaParticles[i]; p.x += p.vx; p.y += p.vy; p.life--;
+                    if (p.life <= 0) { coronaParticles.splice(i, 1); continue; }
+                    let ratio = p.life / p.maxLife;
+                    let grad = startCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+                    grad.addColorStop(0, 'rgba(255, 230, 150, ' + ratio + ')');
+                    grad.addColorStop(0.3, 'rgba(255, 90, 0, ' + ratio * 0.8 + ')');
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    startCtx.beginPath(); startCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    startCtx.fillStyle = grad; startCtx.fill();
+                }
+                startCtx.restore();
+            }
+
+            let fixedSize = minDim * 0.58;
+
+            if (gameState === 'cover') {
+                startCtx.save();
+                startCtx.translate(centerX, circleCenterY);
+                circleRotation += 0.004;
+                startCtx.rotate(circleRotation);
+                if (magicCircleImg.complete) {
+                    startCtx.drawImage(magicCircleImg, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                }
+                startCtx.restore();
+            } 
+            else if (gameState === 'drawing') {
+                startCtx.save();
+                startCtx.translate(centerX, circleCenterY);
+                bg1Rotation -= 0.002; 
+                startCtx.rotate(bg1Rotation);
+                if (bg1Img.complete) {
+                    startCtx.drawImage(bg1Img, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                }
+                startCtx.restore();
+
+                if (wandTrail.length > 1) {
+                    startCtx.save();
+                    startCtx.strokeStyle = 'rgba(0, 210, 255, 0.4)';
+                    startCtx.lineWidth = 8;
+                    startCtx.lineCap = 'round';
+                    startCtx.lineJoin = 'round';
+                    startCtx.beginPath();
+                    startCtx.moveTo(wandTrail[0].x, wandTrail[0].y);
+                    for(let k=1; k<wandTrail.length; k++) startCtx.lineTo(wandTrail[k].x, wandTrail[k].y);
+                    startCtx.stroke();
+                    
+                    startCtx.strokeStyle = '#ffffff';
+                    startCtx.lineWidth = 3;
+                    startCtx.beginPath();
+                    startCtx.moveTo(wandTrail[0].x, wandTrail[0].y);
+                    for(let k=1; k<wandTrail.length; k++) startCtx.lineTo(wandTrail[k].x, wandTrail[k].y);
+                    startCtx.stroke();
+                    startCtx.restore();
+                }
+
+                pentagramPoints.forEach((pt, index) => {
+                    startCtx.save();
+                    let isCurrent = (index === nextRequiredPoint);
+                    if (pt.activated) {
+                        startCtx.fillStyle = '#00ffff';
+                        startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 9, 0, Math.PI * 2); startCtx.fill();
+                    } else if (isCurrent) {
+                        let breath = Math.sin(Date.now() * 0.008) * 2;
+                        startCtx.fillStyle = '#0077ff';
+                        startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 11 + breath, 0, Math.PI * 2); startCtx.fill();
+                        startCtx.strokeStyle = '#ffffff';
+                        startCtx.lineWidth = 1.5;
+                        startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 14 + breath, 0, Math.PI * 2); startCtx.stroke();
+                    } else {
+                        startCtx.fillStyle = 'rgba(0, 119, 255, 0.3)';
+                        startCtx.beginPath(); startCtx.arc(pt.x, pt.y, 8, 0, Math.PI * 2); startCtx.fill();
+                    }
+                    startCtx.restore();
+                });
+            } 
+            else if (gameState === 'success_anim') {
+                circleRotation += 0.06; 
+                bg1Rotation -= 0.04;   
+
+                startCtx.save();
+                startCtx.translate(centerX, circleCenterY);
+                startCtx.rotate(bg1Rotation);
+                if (bg1Img.complete) {
+                    startCtx.drawImage(bg1Img, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                }
+                startCtx.restore();
+
+                startCtx.save();
+                startCtx.translate(centerX, circleCenterY);
+                startCtx.rotate(circleRotation);
+                startCtx.shadowBlur = 40;
+                startCtx.shadowColor = '#ffd700'; 
+                if (magicCircleImg.complete) {
+                    startCtx.drawImage(magicCircleImg, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
+                }
+                startCtx.restore();
+
+                ritualOpacity -= 0.02;
+                if (ritualOpacity <= 0) {
+                    ritualOpacity = 0;
+                    startScreen.style.display = 'none';
+                    triggerCountdown(); 
+                }
+            }
+
+            if (gameState === 'cover' || gameState === 'drawing') {
+                startCtx.save();
+                let dynamicFontSize = Math.min(36, Math.max(18, minDim * 0.062));
+                startCtx.font = `bold ${dynamicFontSize}px 'Cinzel Decorative', Georgia, serif`;
+                startCtx.textAlign = "center";
+                startCtx.textBaseline = "middle";
+                startCtx.letterSpacing = "2px";
+
+                let textY1 = H * 0.71; 
+                let textY2 = textY1 + (dynamicFontSize * 1.25); 
+
+                startCtx.lineWidth = 2;
+                startCtx.strokeStyle = "#000000";
+                startCtx.strokeText("KINETIC SORCERY", centerX, textY1);
+                startCtx.strokeText("ACADEMY", centerX, textY2);
+
+                startCtx.fillStyle = "#ffcc00";
+                startCtx.fillText("KINETIC SORCERY", centerX, textY1);
+                startCtx.fillText("ACADEMY", centerX, textY2);
+                startCtx.restore();
+            }
+
+            startCtx.restore();
+            requestAnimationFrame(updateStartScreen);
+        }
+
+        function triggerCountdown() {
+            gameState = 'countdown';
+            countdownOverlay.style.display = 'block';
+            document.getElementById('ritual-title').innerText = "戰鬥即將開始：屏障充能完畢";
+            document.getElementById('ritual-title').style.color = "#00d2ff";
+            document.getElementById('ritual-desc').innerText = "注意防禦！火球即將發射！";
+            
+            initTracker();
+
+            // 採用羅馬數字計時邏輯
+            const romanNumerals = ["", "I", "II", "III"];
+            let timer = setInterval(() => {
+                countdownNumber--;
+                if (countdownNumber > 0) {
+                    countdownOverlay.innerText = romanNumerals[countdownNumber];
+                } else {
+                    clearInterval(timer);
+                    countdownOverlay.style.display = 'none';
+                    document.getElementById('scoreboard').style.display = 'block';
+                    document.getElementById('ritual-title').innerText = "巫師火原素特訓：幾何特徵狙擊";
+                    document.getElementById('ritual-title').style.color = "#ff4500";
+                    document.getElementById('ritual-desc').innerHTML = '已鎖定<span style="color: #ff3333; font-weight: bold;">球狀紅色物體</span>！揮動魔杖精準攔截火球！';
+                    
+                    gameState = 'playing';
+                    gameStarted = true;
+                    spawnFireball();
+                }
+            }, 1000);
+        }
+
+        tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
+            return (r > 165 && g < 55 && b < 55); 
+        });
+        const tracker = new tracking.ColorTracker(['magic_red']);
+        tracker.setMinDimension(7); 
+
+        let trackerInitialized = false;
+        function initTracker() {
+            if (trackerInitialized) return;
+            trackerInitialized = true;
+
+            const videoConstraints = {
+                audio: false,
+                video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } }
+            };
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia(videoConstraints)
+                    .then(function(stream) {
+                        video.srcObject = stream;
+                        video.play().catch(function(e) {});
+                    }).catch(function(err) {
+                        navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) { video.srcObject = stream; });
+                    });
+            }
+
+            tracker.on('track', function(event) {
+                if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
+                    crosshair.hasTracking = false;
+                    return;
+                }
+                
+                let validTarget = null;
+                for (let i = 0; i < event.data.length; i++) {
+                    let rect = event.data[i];
+                    let aspect = rect.width / rect.height;
+                    if (aspect > 0.6 && aspect < 1.5 && rect.width < (canvas.width * 0.4)) {
+                        if (!validTarget || Math.abs(1 - aspect) < Math.abs(1 - (validTarget.width / validTarget.height))) {
+                            validTarget = rect;
+                        }
+                    }
+                }
+
+                if (validTarget) {
+                    crosshair.hasTracking = true;
+                    crosshair.targetX = canvas.width - (validTarget.x + validTarget.width / 2);
+                    crosshair.targetY = validTarget.y + validTarget.height / 2;
+                } else {
+                    crosshair.hasTracking = false;
+                }
+            });
+
+            tracking.track('#webcam', tracker);
+        }
+
+        function spawnFireball() {
+            if (isGameOver || gameState !== 'playing') return;
+            fireball.x = canvas.width / 2;
+            fireball.y = canvas.height / 2;
+            fireball.size = 2;
+            
+            let angle = Math.random() * Math.PI * 2;
+            fireball.speedX = Math.cos(angle) * 1.8;
+            fireball.speedY = Math.sin(angle) * 1.8;
+            fireball.active = true;
+        }
+
+        function createExplosion(x, y) {
+            for (let i = 0; i < 20; i++) {
+                explosions.push({
+                    x: x, y: y, vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 0.5) * 12,
+                    size: Math.random() * 6 + 3, alpha: 1,
+                    color: `hsl(${Math.random() * 30 + 15}, 100%, 60%)`
+                });
+            }
+        }
+
+        function drawMagicCrosshair(x, y) {
+            crosshair.rotation += 0.04;
+            let dist = Math.hypot(x - fireball.x, y - fireball.y);
+            if (fireball.active && dist < 100 && fireball.size > 15) {
+                crosshair.targetSize = 25; ctx.strokeStyle = '#ff3333';
+            } else {
+                crosshair.targetSize = 35; ctx.strokeStyle = '#00d2ff';
+            }
+            crosshair.currentSize += (crosshair.targetSize - crosshair.currentSize) * 0.2;
+            let r = crosshair.currentSize;
+
+            ctx.save(); ctx.translate(x, y); ctx.rotate(crosshair.rotation);
+            ctx.lineWidth = 2; 
+            ctx.shadowBlur = 4; ctx.shadowColor = ctx.strokeStyle;
+            ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.setLineDash([6, 6]); ctx.stroke();
+            ctx.beginPath(); ctx.rect(-r*0.6, -r*0.6, r*1.2, r*1.2); ctx.setLineDash([]); ctx.lineWidth = 1; ctx.stroke();
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameStarted && gameState === 'playing') {
+                crosshair.x += (crosshair.targetX - crosshair.x) * 0.45;
+                crosshair.y += (crosshair.targetY - crosshair.y) * 0.45;
+
+                for (let i = 0; i < explosions.length; i++) {
+                    let p = explosions[i]; p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
+                    if (p.alpha <= 0) { explosions.splice(i, 1); i--; continue; }
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha; ctx.fill();
+                }
+                ctx.globalAlpha = 1.0;
+
+                if (!isGameOver) {
+                    if (!fireball.active) {
+                        spawnFireball();
+                    } else {
+                        fireball.x += fireball.speedX; fireball.y += fireball.speedY;
+                        fireball.size += 0.6; 
+                        fireball.speedX *= 1.012; 
+                        fireball.speedY *= 1.012;
+
+                        ctx.beginPath();
+                        let gradient = ctx.createRadialGradient(fireball.x, fireball.y, fireball.size*0.2, fireball.x, fireball.y, fireball.size);
+                        gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.2, '#ffdd00'); gradient.addColorStop(0.5, '#ff4500'); gradient.addColorStop(1, 'rgba(255,69,0,0)');
+                        ctx.fillStyle = gradient; ctx.arc(fireball.x, fireball.y, fireball.size, 0, Math.PI * 2); ctx.fill();
+
+                        if (crosshair.hasTracking && fireball.size > 15) {
+                            let distance = Math.hypot(crosshair.x - fireball.x, crosshair.y - fireball.y);
+                            if (distance < (fireball.size*0.7 + crosshair.currentSize)) {
+                                scoreSuccess++;
+                                document.getElementById('txt-success').innerText = scoreSuccess;
+                                createExplosion(fireball.x, fireball.y);
+                                fireball.active = false;
+                            }
+                        }
+
+                        if (fireball.active && fireball.size > 105) {
+                            scoreFailed++;
+                            document.getElementById('txt-failed').innerText = scoreFailed;
+                            document.body.classList.add('shake-effect');
+                            setTimeout(() => document.body.classList.remove('shake-effect'), 400);
+
+                            if (scoreFailed >= 7 && scoreFailed < 10) {
+                                dangerGlowScreen.style.display = 'block'; dangerGlowScreen.classList.add('pulse-effect');
+                            }
+                            if (scoreFailed >= 10) { triggerGameOver(); }
+                            fireball.active = false;
+                        }
+                    }
+                }
+
+                if (crosshair.hasTracking) {
+                    drawMagicCrosshair(crosshair.x, crosshair.y);
+                }
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            fireball.active = false;
+            dangerGlowScreen.style.display = 'none';
+            dangerGlowScreen.classList.remove('pulse-effect');
+            gameOverScreen.style.display = 'flex'; 
+        }
+
+        function resetGame() {
+            scoreSuccess = 0;
+            scoreFailed = 0;
+            isGameOver = false;
+            gameStarted = false;
+            countdownNumber = 3;
+            nextRequiredPoint = 0;
+            ritualOpacity = 1.0;
+            startCtx.globalAlpha = 1.0;
+            
+            wandTrail = [];
+            countdownOverlay.innerText = "III"; // 預設改為羅馬數字
+            document.getElementById('txt-success').innerText = "0";
+            document.getElementById('txt-failed').innerText = "0";
+            dangerGlowScreen.style.display = 'none';
+            dangerGlowScreen.classList.remove('pulse-effect');
+            gameOverScreen.style.display = 'none';
+            
+            pentagramPoints.forEach(pt => pt.activated = false);
+            explosions = [];
+
+            gameState = 'cover';
+            startScreen.style.opacity = "1";
+            startScreen.style.display = 'flex';
+            document.getElementById('start-prompt').style.display = 'block';
+            document.getElementById('instruction').style.display = 'none';
+            document.getElementById('scoreboard').style.display = 'none';
+            resizeCanvases();
+        }
+
+        resizeCanvases();
+        updateStartScreen();
+        gameLoop();
+    </script>
+</body>
+</html>
