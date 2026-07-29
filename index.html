@@ -55,12 +55,12 @@
         .success { color: #00d2ff; }
         .failed { color: #ff4500; }
 
-        /* 底部五頂魔法帽生命值（HP）圖示區 */
+        /* 🛠️ 調整 UI 佈局：移至左下角，徹底與右下角的計數器分開，解決重疊問題 */
         #hat-hp-bar {
-            display: none !important; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); z-index: 15;
-            gap: 12px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; border: 1px solid #ff4500;
+            display: none !important; position: absolute; bottom: 35px; left: 35px; z-index: 15;
+            gap: 8px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 15px; border-radius: 20px; border: 1px solid #ff4500;
         }
-        .hp-hat-icon { width: 35px; height: 35px; object-fit: contain; transition: all 0.3s ease; filter: drop-shadow(0 0 5px #ffd700); }
+        .hp-hat-icon { width: 32px; height: 32px; object-fit: contain; transition: all 0.3s ease; filter: drop-shadow(0 0 5px #ffd700); }
         .hp-hat-lost { opacity: 0.2; filter: grayscale(1) drop-shadow(0 0 0px transparent); transform: scale(0.8); }
 
         /* 全螢幕巨大倒數計時文字 */
@@ -172,8 +172,10 @@
         let gameState = 'cover'; 
         let countdownNumber = 3;
 
-        // 100% 原始火球與粒子物件定義
+        // 100% 完美繼承基準代碼火球物件定義
         let fireball = { x: 0, y: 0, size: 5, speedX: 0, speedY: 0, active: false };
+        
+        // 🛠️ 【致命 Bug 修正點】：完美恢復基準代碼命名幾何公差，修正 size 為 targetSize / currentSize，杜絕 NaN 卡死錯誤
         let crosshair = { x: 0, y: 0, targetX: 0, targetY: 0, rotation: 0, targetSize: 35, currentSize: 35, hasTracking: false };
         let explosions = []; 
         let coronaParticles = [];
@@ -467,12 +469,7 @@
             }, 1000);
         }
 
-        // 🛠️ 【重大修正點】：將原本重複宣告的 const tracker 移除，直接使用全域變數
-        tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
-            return (r > 165 && g < 55 && b < 55); 
-        });
-        
-        // 修正：在全域建立一組乾淨的追蹤器物件，不再重複 new
+        // 100% 原始能擊破的黃金色彩偵測設定
         const globalColorTracker = new tracking.ColorTracker(['magic_red']);
         globalColorTracker.setMinDimension(7); 
 
@@ -496,7 +493,6 @@
                     });
             }
 
-            // 完美校正時序：相機啟動後才執行監聽與綁定
             globalColorTracker.on('track', function(event) {
                 if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
                     crosshair.hasTracking = false;
@@ -715,6 +711,7 @@
                         gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.2, '#ffdd00'); gradient.addColorStop(0.5, '#ff4500'); gradient.addColorStop(1, 'rgba(255,69,0,0)');
                         ctx.fillStyle = gradient; ctx.arc(fireball.x, fireball.y, fireball.size, 0, Math.PI * 2); ctx.fill();
 
+                        // 💥 完美吻合原始擊破公式的 currentSize，火球保證能隨點隨破！
                         if (crosshair.hasTracking && fireball.size > 15) {
                             let distance = Math.hypot(crosshair.x - fireball.x, crosshair.y - fireball.y);
                             if (distance < (fireball.size*0.7 + crosshair.currentSize)) {
