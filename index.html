@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Kinetic Sorcery - 巫師火原素特訓</title>
     
+    <!-- Google Fonts 史詩級魔法書寫風格字型 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
     
+    <!-- 引入核心的顏色追蹤庫 與 官方 MediaPipe 臉部網格庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/tracking-min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
@@ -51,7 +53,7 @@
         .success { color: #00d2ff; }
         .failed { color: #ff4500; }
 
-        /* 左下角五頂魔法帽生命值（HP）圖示區 */
+        /* 左下角五頂魔法帽生命值（HP）圖示區 - 左右分流防重疊 */
         #hat-hp-bar {
             display: none !important; position: absolute; bottom: 35px; left: 35px; z-index: 15;
             gap: 8px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 15px; border-radius: 20px; border: 1px solid #ff4500;
@@ -96,6 +98,7 @@
 </head>
 <body>
 
+    <!-- 初始主畫面 -->
     <div id="start-screen">
         <canvas id="start-canvas"></canvas>
         <div id="start-ui">
@@ -103,26 +106,34 @@
         </div>
     </div>
 
+    <!-- 實時鏡頭 -->
     <video id="webcam" preload autoplay loop muted playsinline></video>
     
+    <!-- 遊戲特效層 -->
     <canvas id="game-canvas"></canvas>
 
+    <!-- 符文自適應外框 -->
     <div id="game-stone-frame"></div>
 
+    <!-- 危機紅色呼吸層 -->
     <div id="danger-glow-screen"></div>
 
+    <!-- 羅馬數字巨大倒數計時層 -->
     <div id="countdown-overlay">III</div>
 
+    <!-- 提示 UI -->
     <div id="instruction">
         <strong id="ritual-title" style="color: #ffd700;">結界啟動中...</strong><br>
         <span id="ritual-desc" style="font-size: 13px;">請用手指在圓圈內依序滑過藍色發光點，一筆畫畫出五芒星！</span>
     </div>
 
+    <!-- 右下角計數器 -->
     <div id="scoreboard">
         <div>成功攔截：<span id="txt-success" class="success">0</span> 次</div>
         <div>防禦失敗：<span id="txt-failed" class="failed">0</span> 次</div>
     </div>
 
+    <!-- 底部五頂魔法帽生命值血條 -->
     <div id="hat-hp-bar">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-1">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-2">
@@ -131,6 +142,7 @@
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-5">
     </div>
 
+    <!-- 重新挑戰畫面 -->
     <div id="game-over-screen">
         <div id="game-over-text">特訓結束</div>
         <div id="game-result-details"></div>
@@ -158,7 +170,7 @@
         let gameState = 'cover'; 
         let countdownNumber = 3;
 
-        // 100% 原始黃金基準火球與準星數據定義
+        // 100% 原始黃金基準火球與準星變數定義
         let fireball = { x: 0, y: 0, size: 5, speedX: 0, speedY: 0, active: false };
         let crosshair = { x: 0, y: 0, targetX: 0, targetY: 0, rotation: 0, targetSize: 35, currentSize: 35, hasTracking: false };
         let explosions = []; 
@@ -380,9 +392,12 @@
             }, 1000);
         }
 
-        // 100% 黃金基準 1:1 複製原始 ColorTracker 宣告
-        const tracker = new tracking.ColorTracker(['magic_red']);
-        tracker.setMinDimension(7); 
+        // 🛠️ 【實際環境過一遍修正點】：全域追蹤器物件完全命名獨立為 wandTracker，杜絕重複宣告
+        tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
+            return (r > 165 && g < 55 && b < 55); 
+        });
+        const wandTracker = new tracking.ColorTracker(['magic_red']);
+        wandTracker.setMinDimension(7); 
 
         let trackerInitialized = false;
         function initTrackerAndAR() {
@@ -394,7 +409,7 @@
                 video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } }
             };
 
-            // 100% 完全恢復黃金基準同步載入，徹底移除非同步載入 Promise，黑屏徹底解決
+            // 100% 複製基準代碼同步喚醒相機
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia(videoConstraints)
                     .then(function(stream) {
@@ -405,10 +420,10 @@
                     });
             }
 
-            // 同步咬合色彩主線程
-            tracking.track('#webcam', tracker);
+            // 同步啟用追蹤核心
+            tracking.track('#webcam', wandTracker);
 
-            tracker.on('track', function(event) {
+            wandTracker.on('track', function(event) {
                 if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
                     crosshair.hasTracking = false;
                     return;
@@ -434,7 +449,7 @@
                 }
             });
 
-            // 獨立外掛 MediaPipe Face Mesh
+            // MediaPipe Face Mesh 初始化
             const faceMesh = new FaceMesh({
                 locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
             });
@@ -485,6 +500,7 @@
         }
 
         function handleDragonBossAI() {
+            // 🛠️ 防漏警告控制：一旦 GameOver，巨龍控制器直接熔斷，強制不執行火焰切換與計時器減算！
             if (isGameOver) return;
 
             dragonBoss.stateTimer--;
@@ -528,6 +544,7 @@
         }
 
         function triggerPlayerDamage() {
+            // 🛠️ 死後二次隔離：死後拒絕重算扣血
             if (isGameOver || invulnerableTimer > 0) return; 
 
             scoreFailed++;
@@ -605,6 +622,7 @@
                     if (Math.random() < 0.6) createExplosion(dragonLaser.x + (Math.random() - 0.5) * 20, Math.random() * (canvas.height - dragonLaser.topY) + dragonLaser.topY, true);
                     ctx.restore();
 
+                    // 🛠️ 修正死後判定：isGameOver 為真時，禁止重複觸發射線扣血
                     if (userHatAR.tracked && invulnerableTimer === 0 && !isGameOver) {
                         let hatLeft = userHatAR.x - userHatAR.width / 2;
                         let hatRight = userHatAR.x + userHatAR.width / 2;
@@ -625,10 +643,10 @@
                         gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.2, '#ffdd00'); gradient.addColorStop(0.5, '#ff4500'); gradient.addColorStop(1, 'rgba(255,69,0,0)');
                         ctx.fillStyle = gradient; ctx.arc(fireball.x, fireball.y, fireball.size, 0, Math.PI * 2); ctx.fill();
 
-                        // 💥 黃金基準碰撞擊破公式
+                        // 💥 基準代碼火球碰撞擊破演算法 - 完全回復
                         if (crosshair.hasTracking && fireball.size > 15) {
-                            let distance = Math.hypot(crosshair.x - fireball.x, crosshair.y - fireball.y);
-                            if (distance < (fireball.size*0.7 + crosshair.currentSize)) {
+                            let distance = Math.sqrt((crosshair.x - fireball.x)**2 + (crosshair.y - fireball.y)**2);
+                            if (distance < (fireball.size * 0.7 + crosshair.currentSize)) {
                                 scoreSuccess++;
                                 document.getElementById('txt-success').innerText = scoreSuccess;
                                 createExplosion(fireball.x, fireball.y);
@@ -668,6 +686,7 @@
             isGameOver = true;
             gameStarted = false;
             
+            // 🛠️ 【結算瞬間清空戰場】：強迫終止火球活躍度與雷射，防止背景繼續扣血與產火球
             fireball.active = false;
             dragonLaser.active = false;
             
