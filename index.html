@@ -170,7 +170,7 @@
         let gameState = 'cover'; 
         let countdownNumber = 3;
 
-        // 100% 原始黃金基準火球與準星數據定義
+        // 100% 黃金基準火球與準星數據定義
         let fireball = { x: 0, y: 0, size: 5, speedX: 0, speedY: 0, active: false };
         let crosshair = { x: 0, y: 0, targetX: 0, targetY: 0, rotation: 0, targetSize: 35, currentSize: 35, hasTracking: false };
         let explosions = []; 
@@ -392,7 +392,7 @@
             }, 1000);
         }
 
-        // 色彩追蹤與 MediaPipe AI 初始化
+        // 100% 黃金基準 ColorTracker 宣告
         const tracker = new tracking.ColorTracker(['magic_red']);
         tracker.setMinDimension(7); 
 
@@ -406,20 +406,19 @@
                 video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } }
             };
 
+            // 🛠️ 【專業審查修正】：完全恢復基準代碼的純淨同步載入，移除 video.play().then 非同步阻塞，確保魔法陣發光點不全黑！
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia(videoConstraints)
                     .then(function(stream) {
                         video.srcObject = stream;
-                        video.play().then(() => {
-                            tracking.track('#webcam', tracker);
-                        }).catch(function(e) {});
+                        video.play().catch(function(e) {});
                     }).catch(function(err) {
-                        navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) { 
-                            video.srcObject = stream;
-                            video.play().then(() => { tracking.track('#webcam', tracker); });
-                        });
+                        navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) { video.srcObject = stream; });
                     });
             }
+
+            // 同步呼叫，無條件掛載色彩捕捉
+            tracking.track('#webcam', tracker);
 
             tracker.on('track', function(event) {
                 if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
@@ -498,7 +497,6 @@
         }
 
         function handleDragonBossAI() {
-            // 🛠️ 【核心修正閘門】：如果遊戲已經進入 GameOver 狀態，巨龍直接原地凍結，立刻全面停止倒數與發射
             if (isGameOver) return;
 
             dragonBoss.stateTimer--;
@@ -542,7 +540,6 @@
         }
 
         function triggerPlayerDamage() {
-            // 🛠️ 防護安全鎖：如果已經死掉，拒絕觸發任何受傷邏輯，避免計數器繼續加算
             if (isGameOver || invulnerableTimer > 0) return; 
 
             scoreFailed++;
@@ -620,7 +617,6 @@
                     if (Math.random() < 0.6) createExplosion(dragonLaser.x + (Math.random() - 0.5) * 20, Math.random() * (canvas.height - dragonLaser.topY) + dragonLaser.topY, true);
                     ctx.restore();
 
-                    // 🛠️ 修正：只有在非 GameOver 的狀態下，火焰射線才允許計算玩家受傷判定
                     if (userHatAR.tracked && invulnerableTimer === 0 && !isGameOver) {
                         let hatLeft = userHatAR.x - userHatAR.width / 2;
                         let hatRight = userHatAR.x + userHatAR.width / 2;
@@ -641,6 +637,7 @@
                         gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.2, '#ffdd00'); gradient.addColorStop(0.5, '#ff4500'); gradient.addColorStop(1, 'rgba(255,69,0,0)');
                         ctx.fillStyle = gradient; ctx.arc(fireball.x, fireball.y, fireball.size, 0, Math.PI * 2); ctx.fill();
 
+                        // 黃金基準擊破判定
                         if (crosshair.hasTracking && fireball.size > 15) {
                             let distance = Math.hypot(crosshair.x - fireball.x, crosshair.y - fireball.y);
                             if (distance < (fireball.size*0.7 + crosshair.currentSize)) {
@@ -683,7 +680,6 @@
             isGameOver = true;
             gameStarted = false;
             
-            // 🛠️ 【戰場即時清空】：在死掉結算的瞬間，強迫清除當前畫面上的火球與射線，確保背景靜止
             fireball.active = false;
             dragonLaser.active = false;
             
