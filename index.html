@@ -133,7 +133,7 @@
         <div>防禦失敗：<span id="txt-failed" class="failed">0</span> 次</div>
     </div>
 
-    <!-- 底部五頂魔法帽生命值血條 - 🛠️ 已精準修正為小寫的 .png 圖檔路徑 -->
+    <!-- 底部五頂魔法帽生命值血條 -->
     <div id="hat-hp-bar">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-1">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-2">
@@ -171,12 +171,12 @@
         let countdownNumber = 3;
 
         let dragonImg = new Image(); dragonImg.src = "dragon head-front.png";
-        // 🛠️ 核心資產圖檔同步正名為小寫的 .png 
         let hatImg = new Image(); hatImg.src = "CIC-hat.png";
         let magicCircleImg = new Image(); magicCircleImg.src = "bg.png"; 
         let bg1Img = new Image(); bg1Img.src = "bg-1.png";
 
-        let dragonBoss = { x: 0, y: 50, width: 140, height: 140, speedX: 2.5, targetX: 0, state: 'move', stateTimer: 120 };
+        // 🛠️ 【邏輯重構】：在巨龍物件中新增 shootCooldown 用來控制火球掉落頻率，解耦隨機總時間
+        let dragonBoss = { x: 0, y: 50, width: 140, height: 140, speedX: 2.5, state: 'move', stateTimer: 120, shootCooldown: 0 };
         let fireballs = []; 
         let dragonLaser = { active: false, x: 0, topY: 0, width: 35, alpha: 0 };
         let userHatAR = { x: 0, y: 0, width: 110, height: 110, tracked: false, ivX: 0, ivY: 0 };
@@ -368,7 +368,6 @@
                     countdownOverlay.style.display = 'none';
                     document.getElementById('scoreboard').style.display = 'block';
                     
-                    // 🛠️ 【啟動設定】：倒數完畢、遊戲正式 Playing 時，才動態顯現五頂魔法帽 Icon 與石雕外框
                     hpBar.style.setProperty('display', 'flex', 'important'); 
                     stoneFrame.style.display = 'block'; 
                     
@@ -441,16 +440,23 @@
             }
         }
 
+        // 🛠️ 【核心行為狀態機優化】：獨立處理火球發射冷卻，與隨機移動總計時完美解耦
         function handleDragonBossAI() {
             dragonBoss.stateTimer--;
 
             if (dragonBoss.state === 'move') {
+                // 1. 左右游走
                 dragonBoss.x += dragonBoss.speedX;
                 if (dragonBoss.x <= 40 || dragonBoss.x >= canvas.width - dragonBoss.width - 40) {
                     dragonBoss.speedX *= -1;
                 }
 
-                if (dragonBoss.stateTimer % 28 === 0 && fireballs.length < 5) {
+                // 2. 獨立計時火球發射冷卻：只要在 move 狀態下，無論第幾輪移動，冷卻到 0 且火球上限未滿就必然持續發射！
+                if (dragonBoss.shootCooldown > 0) {
+                    dragonBoss.shootCooldown--;
+                }
+
+                if (dragonBoss.shootCooldown <= 0 && fireballs.length < 5) {
                     fireballs.push({
                         x: dragonBoss.x + dragonBoss.width / 2,
                         y: dragonBoss.y + dragonBoss.height * 0.7,
@@ -458,6 +464,7 @@
                         speedY: Math.random() * 2 + 2.5, 
                         active: true
                     });
+                    dragonBoss.shootCooldown = 32; // 設下約 0.5 秒的固定發射冷卻
                 }
 
                 if (dragonBoss.stateTimer <= 0) {
@@ -479,7 +486,9 @@
                 dragonLaser.x = dragonBoss.x + dragonBoss.width / 2;
                 if (dragonBoss.stateTimer <= 0) {
                     dragonBoss.state = 'move';
+                    // 🛠️ 【修正點】：重設回游走時，同步將火球發射冷卻歸零，強迫巨龍一回歸游走就立刻重新產火球！
                     dragonBoss.stateTimer = Math.random() * 100 + 100;
+                    dragonBoss.shootCooldown = 0; 
                     dragonLaser.active = false;
                 }
             }
@@ -645,6 +654,7 @@
             dragonLaser.active = false;
             dragonBoss.state = 'move';
             dragonBoss.stateTimer = 120;
+            dragonBoss.shootCooldown = 0; // 重置冷卻
             
             countdownOverlay.innerText = "III";
             dangerGlowScreen.style.display = 'none';
@@ -665,7 +675,6 @@
             document.getElementById('instruction').style.display = 'none';
             document.getElementById('scoreboard').style.display = 'none';
             
-            // 重置時強制把生命帽與石雕外框完全隱藏
             hpBar.style.setProperty('display', 'none', 'important');
             stoneFrame.style.display = 'none';
             
