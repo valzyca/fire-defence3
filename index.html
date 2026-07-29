@@ -55,7 +55,7 @@
         .success { color: #00d2ff; }
         .failed { color: #ff4500; }
 
-        /* 底部五頂魔法帽生命值（HP）圖示區 - 預設強制完全隱藏，採用小寫路徑 */
+        /* 底部五頂魔法帽生命值（HP）圖示區 */
         #hat-hp-bar {
             display: none !important; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); z-index: 15;
             gap: 12px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; border: 1px solid #ff4500;
@@ -172,7 +172,7 @@
         let gameState = 'cover'; 
         let countdownNumber = 3;
 
-        // 100% 繼承基準代碼火球與粒子物件定義
+        // 100% 原始火球與粒子物件定義
         let fireball = { x: 0, y: 0, size: 5, speedX: 0, speedY: 0, active: false };
         let crosshair = { x: 0, y: 0, targetX: 0, targetY: 0, rotation: 0, targetSize: 35, currentSize: 35, hasTracking: false };
         let explosions = []; 
@@ -467,9 +467,14 @@
             }, 1000);
         }
 
-        // 100% 原始能擊破的黃金色彩偵測設定
-        const tracker = new tracking.ColorTracker(['magic_red']);
-        tracker.setMinDimension(7); 
+        // 🛠️ 【重大修正點】：將原本重複宣告的 const tracker 移除，直接使用全域變數
+        tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
+            return (r > 165 && g < 55 && b < 55); 
+        });
+        
+        // 修正：在全域建立一組乾淨的追蹤器物件，不再重複 new
+        const globalColorTracker = new tracking.ColorTracker(['magic_red']);
+        globalColorTracker.setMinDimension(7); 
 
         let trackerInitialized = false;
         function initTrackerAndAR() {
@@ -491,10 +496,8 @@
                     });
             }
 
-            // 🛠️ 【致命邏輯修正點】：
-            // 將 tracker.on('track') 移入初始化內，並在相機開啟的當下才與影像流（#webcam）進行硬體級綁定。
-            // 完美校正時序，100% 確保追蹤坐標與擊破公式完全對齊，火球必能被順利擊破！
-            tracker.on('track', function(event) {
+            // 完美校正時序：相機啟動後才執行監聽與綁定
+            globalColorTracker.on('track', function(event) {
                 if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
                     crosshair.hasTracking = false;
                     return;
@@ -519,7 +522,7 @@
                     crosshair.hasTracking = false;
                 }
             });
-            tracking.track('#webcam', tracker);
+            tracking.track('#webcam', globalColorTracker);
 
             // 獨立平行外掛 MediaPipe Face Mesh
             const faceMesh = new FaceMesh({
