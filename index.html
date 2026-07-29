@@ -55,7 +55,7 @@
         .success { color: #00d2ff; }
         .failed { color: #ff4500; }
 
-        /* 底部五頂魔法帽生命值（HP）圖示區 - 預設強制完全隱藏，採用修正後的小寫路徑 */
+        /* 底部五頂魔法帽生命值（HP）圖示區 */
         #hat-hp-bar {
             display: none !important; position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); z-index: 15;
             gap: 12px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px; border: 1px solid #ff4500;
@@ -108,7 +108,7 @@
         </div>
     </div>
 
-    <!-- 實時鏡頭 - 恢復基準代碼無 display:none 的設定 -->
+    <!-- 實時鏡頭 -->
     <video id="webcam" preload autoplay loop muted playsinline></video>
     
     <!-- 遊戲特效層 -->
@@ -135,7 +135,7 @@
         <div>防禦失敗：<span id="txt-failed" class="failed">0</span> 次</div>
     </div>
 
-    <!-- 底部五頂魔法帽生命值血條 - 採用小寫修正名稱路徑 -->
+    <!-- 底部五頂魔法帽生命值血條 -->
     <div id="hat-hp-bar">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-1">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-2">
@@ -166,7 +166,7 @@
 
         let gameStarted = false;
         let scoreSuccess = 0;
-        let scoreFailed = 0; // 轉為記錄生命值扣血次數
+        let scoreFailed = 0; 
         let isGameOver = false;
 
         let gameState = 'cover'; 
@@ -438,7 +438,7 @@
         function triggerCountdown() {
             gameState = 'countdown';
             countdownOverlay.style.display = 'block';
-            document.getElementById('ritual-title').innerText = "巫師火原素特訓：巨龍逆襲頭目戰";
+            document.getElementById('ritual-title').innerText = "遠古巨龍降臨：結界充能完畢";
             document.getElementById('ritual-title').style.color = "#00d2ff";
             document.getElementById('ritual-desc').innerText = "注意防禦！AI 臉部追蹤充能中...";
             
@@ -471,18 +471,37 @@
         }
 
         // 100% 完美套用確定能精準擊破火球的原始 ColorTracker 顏色範圍與規則
-        tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
-            return (r > 165 && g < 55 && b < 55); 
+        tracker.on('track', function(event) {
+            if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
+                crosshair.hasTracking = false;
+                return;
+            }
+            
+            let validTarget = null;
+            for (let i = 0; i < event.data.length; i++) {
+                let rect = event.data[i];
+                let aspect = rect.width / rect.height;
+                if (aspect > 0.6 && aspect < 1.5 && rect.width < (canvas.width * 0.4)) {
+                    if (!validTarget || Math.abs(1 - aspect) < Math.abs(1 - (validTarget.width / validTarget.height))) {
+                        validTarget = rect;
+                    }
+                }
+            }
+
+            if (validTarget) {
+                crosshair.hasTracking = true;
+                crosshair.targetX = canvas.width - (validTarget.x + validTarget.width / 2);
+                crosshair.targetY = validTarget.y + validTarget.height / 2;
+            } else {
+                crosshair.hasTracking = false;
+            }
         });
-        const tracker = new tracking.ColorTracker(['magic_red']);
-        tracker.setMinDimension(7); 
 
         let trackerInitialized = false;
         function initTrackerAndAR() {
             if (trackerInitialized) return;
             trackerInitialized = true;
 
-            // 1. 完全保留基準代碼的 getUserMedia 相機串流初始化，確保不產生鏡頭阻塞
             const videoConstraints = {
                 audio: false,
                 video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } }
@@ -498,42 +517,15 @@
                     });
             }
 
-            // 2. 100% 原始準星追蹤綁定
-            tracker.on('track', function(event) {
-                if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
-                    crosshair.hasTracking = false;
-                    return;
-                }
-                
-                let validTarget = null;
-                for (let i = 0; i < event.data.length; i++) {
-                    let rect = event.data[i];
-                    let aspect = rect.width / rect.height;
-                    if (aspect > 0.6 && aspect < 1.5 && rect.width < (canvas.width * 0.4)) {
-                        if (!validTarget || Math.abs(1 - aspect) < Math.abs(1 - (validTarget.width / validTarget.height))) {
-                            validTarget = rect;
-                        }
-                    }
-                }
-
-                if (validTarget) {
-                    crosshair.hasTracking = true;
-                    crosshair.targetX = canvas.width - (validTarget.x + validTarget.width / 2);
-                    crosshair.targetY = validTarget.y + validTarget.height / 2;
-                } else {
-                    crosshair.hasTracking = false;
-                }
-            });
             tracking.track('#webcam', tracker);
 
-            // 3. 獨立平行外掛 MediaPipe Face Mesh（AR 魔法帽跟隨）
+            // 獨立平行外掛 MediaPipe Face Mesh（AR 魔法帽跟隨）
             const faceMesh = new FaceMesh({
                 locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
             });
             faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
             faceMesh.onResults(onARFaceMeshResults);
 
-            // 使用與基準代碼平行的微計時器向 Face Mesh 餵送畫面，絕不干擾色彩追蹤主線
             setInterval(async () => {
                 if (video.readyState === video.HAVE_ENOUGH_DATA) {
                     await faceMesh.send({ image: video });
@@ -541,7 +533,6 @@
             }, 35);
         }
 
-        // 獨立人臉頂部座標幾何對齊
         function onARFaceMeshResults(results) {
             if (isGameOver || !results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
                 userHatAR.tracked = false;
@@ -553,15 +544,13 @@
             userHatAR.ivY = landmarks[10].y * canvas.height - (canvas.height * 0.12);
         }
 
-        // 100% 原始火球重生公式（修改為由巨龍位置發出）
         function spawnFireball() {
             if (isGameOver || gameState !== 'playing') return;
-            // 火球改從龍頭下方正中心出生
             fireball.x = dragonBoss.x + dragonBoss.width / 2;
             fireball.y = dragonBoss.y + dragonBoss.height * 0.7;
             fireball.size = 2;
             
-            let angle = Math.PI / 2 + (Math.random() - 0.5) * 0.5; // 朝向下方大約垂直的角度滾落
+            let angle = Math.PI / 2 + (Math.random() - 0.5) * 0.5; 
             fireball.speedX = Math.cos(angle) * 1.8;
             fireball.speedY = Math.sin(angle) * 1.8;
             fireball.active = true;
@@ -578,7 +567,6 @@
             }
         }
 
-        // 獨立巨龍 AI 狀態控制器
         function handleDragonBossAI() {
             dragonBoss.stateTimer--;
 
@@ -588,7 +576,6 @@
                     dragonBoss.speedX *= -1;
                 }
 
-                // 獨立火球冷卻計數器
                 if (dragonBoss.shootCooldown > 0) {
                     dragonBoss.shootCooldown--;
                 }
@@ -623,7 +610,6 @@
             }
         }
 
-        // 獨立受傷事件
         function triggerPlayerDamage() {
             if (invulnerableTimer > 0) return; 
 
@@ -682,10 +668,8 @@
                 userHatAR.x += (userHatAR.ivX - userHatAR.x) * 0.6;
                 userHatAR.y += (userHatAR.ivY - userHatAR.y) * 0.6;
 
-                // 執行巨龍外掛狀態機
                 handleDragonBossAI();
 
-                // 粒子爆炸效果渲染
                 for (let i = 0; i < explosions.length; i++) {
                     let p = explosions[i]; p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
                     if (p.alpha <= 0) { explosions.splice(i, 1); i--; continue; }
@@ -694,7 +678,6 @@
                 }
                 ctx.globalAlpha = 1.0;
 
-                // 巨龍連發火焰噴射射線
                 if (dragonLaser.active) {
                     ctx.save();
                     ctx.globalCompositeOperation = 'screen';
@@ -706,7 +689,6 @@
                     if (Math.random() < 0.6) createExplosion(dragonLaser.x + (Math.random() - 0.5) * 20, Math.random() * (canvas.height - dragonLaser.topY) + dragonLaser.topY, true);
                     ctx.restore();
 
-                    // 火焰燃燒魔法帽碰撞判定
                     if (userHatAR.tracked && invulnerableTimer === 0) {
                         let hatLeft = userHatAR.x - userHatAR.width / 2;
                         let hatRight = userHatAR.x + userHatAR.width / 2;
@@ -716,11 +698,8 @@
                     }
                 }
 
-                // 100% 原始火球飛行與碰撞攔截機制
                 if (!isGameOver) {
-                    if (!fireball.active) {
-                        // 由 dragonBoss 控制 spawnFireball
-                    } else {
+                    if (fireball.active) {
                         fireball.x += fireball.speedX; fireball.y += fireball.speedY;
                         fireball.size += 0.6; 
                         fireball.speedX *= 1.012; 
@@ -731,7 +710,6 @@
                         gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.2, '#ffdd00'); gradient.addColorStop(0.5, '#ff4500'); gradient.addColorStop(1, 'rgba(255,69,0,0)');
                         ctx.fillStyle = gradient; ctx.arc(fireball.x, fireball.y, fireball.size, 0, Math.PI * 2); ctx.fill();
 
-                        // 💥 原始色彩追蹤與火球碰撞擊破演算法 - 完全保留
                         if (crosshair.hasTracking && fireball.size > 15) {
                             let distance = Math.hypot(crosshair.x - fireball.x, crosshair.y - fireball.y);
                             if (distance < (fireball.size*0.7 + crosshair.currentSize)) {
@@ -742,14 +720,12 @@
                             }
                         }
 
-                        // 火球滾落至臨界線判定（未擊落消失，火球本身不扣血，火焰射線才扣血）
                         if (fireball.active && (fireball.size > 105 || fireball.y > canvas.height + 50)) {
                             fireball.active = false;
                         }
                     }
                 }
 
-                // 繪製巨龍 Boss 頭部
                 if (dragonImg.complete) {
                     ctx.save();
                     let offsetX = (dragonBoss.state === 'pre_laser') ? (Math.random() - 0.5) * 5 : 0;
@@ -757,7 +733,6 @@
                     ctx.restore();
                 }
 
-                // 繪製 AR 魔法帽
                 if (userHatAR.tracked && hatImg.complete) {
                     if (invulnerableTimer === 0 || Math.floor(invulnerableTimer / 4) % 2 === 0) {
                         ctx.save();
@@ -793,7 +768,6 @@
             gameOverScreen.style.display = 'flex'; 
         }
 
-        // 按下重新挑戰後，直接網頁真·重新整理，徹底清空記憶體與執行緒
         function resetGame() {
             window.location.reload(true);
         }
