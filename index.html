@@ -46,14 +46,14 @@
         @keyframes pulseGlow { 0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.97); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); } }
 
         /* 頂部引進與狀態引導 */
-        #instruction { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(0,0,0,0.75); color: #fff; padding: 12px 24px; border-radius: 30px; border: 1px solid #ff4500; text-align: center; box-shadow: 0 0 15px rgba(255, 69, 0, 0.4); display: none; }
+        #instruction { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(0,0,0,0.75); color: #fff; padding: 12px 24px; border-radius: 30px; border: 1px solid #ff4500; text-align: center; box-shadow: 0 0 15px rgba(255, 69, 0, 0.4); display: none; width: 85%; max-width: 400px; box-sizing: border-box; }
         
         /* 右下角魔法計數器 */
         #scoreboard { position: absolute; bottom: 35px; right: 35px; z-index: 15; background: rgba(0,0,0,0.8); color: #fff; padding: 15px; border-radius: 12px; border: 2px solid #00d2ff; font-weight: bold; font-size: 16px; line-height: 1.6; box-shadow: 0 0 10px rgba(0, 210, 255, 0.3); display: none; }
         .success { color: #00d2ff; }
         .failed { color: #ff4500; }
 
-        /* 左下角五頂魔法帽生命值（HP）圖示區 - 左右分流防重疊 */
+        /* 左下角五頂魔法帽生命值（HP）圖示區 */
         #hat-hp-bar {
             display: none !important; position: absolute; bottom: 35px; left: 35px; z-index: 15;
             gap: 8px; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); padding: 10px 15px; border-radius: 20px; border: 1px solid #ff4500;
@@ -170,7 +170,7 @@
         let gameState = 'cover'; 
         let countdownNumber = 3;
 
-        // 100% 原始黃金基準火球與準星變數定義
+        // 100% 黃金基準火球與準星變數定義
         let fireball = { x: 0, y: 0, size: 5, speedX: 0, speedY: 0, active: false };
         let crosshair = { x: 0, y: 0, targetX: 0, targetY: 0, rotation: 0, targetSize: 35, currentSize: 35, hasTracking: false };
         let explosions = []; 
@@ -381,10 +381,9 @@
                     hpBar.style.setProperty('display', 'flex', 'important');
                     stoneFrame.style.display = 'block';
 
-                    document.getElementById('ritual-title').innerText = "巫師火原素特訓：巨龍逆襲頭目戰";
-                    document.getElementById('ritual-title').style.color = "#ff4500";
-                    document.getElementById('ritual-desc').innerHTML = '擊落滾落火球！當巨龍停下時，請<span style="color:#ffd700;font-weight:bold;">擺動身體閃避</span>火焰射線！';
-                    
+                    // 🛠️ 【全新修改亮點】：倒數計時一過、遊戲正式開始時，強迫將擋住龍頭的頂部提示文字直接隱藏（display: none）
+                    document.getElementById('instruction').style.display = 'none';
+
                     gameState = 'playing';
                     gameStarted = true;
                     spawnFireball();
@@ -392,12 +391,9 @@
             }, 1000);
         }
 
-        // 🛠️ 【實際環境過一遍修正點】：全域追蹤器物件完全命名獨立為 wandTracker，杜絕重複宣告
-        tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
-            return (r > 165 && g < 55 && b < 55); 
-        });
-        const wandTracker = new tracking.ColorTracker(['magic_red']);
-        wandTracker.setMinDimension(7); 
+        // 100% 黃金基準 ColorTracker 宣告
+        const tracker = new tracking.ColorTracker(['magic_red']);
+        tracker.setMinDimension(7); 
 
         let trackerInitialized = false;
         function initTrackerAndAR() {
@@ -409,7 +405,6 @@
                 video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } }
             };
 
-            // 100% 複製基準代碼同步喚醒相機
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia(videoConstraints)
                     .then(function(stream) {
@@ -420,10 +415,9 @@
                     });
             }
 
-            // 同步啟用追蹤核心
-            tracking.track('#webcam', wandTracker);
+            tracking.track('#webcam', tracker);
 
-            wandTracker.on('track', function(event) {
+            tracker.on('track', function(event) {
                 if (isGameOver || event.data.length === 0 || gameState !== 'playing') {
                     crosshair.hasTracking = false;
                     return;
@@ -500,7 +494,6 @@
         }
 
         function handleDragonBossAI() {
-            // 🛠️ 防漏警告控制：一旦 GameOver，巨龍控制器直接熔斷，強制不執行火焰切換與計時器減算！
             if (isGameOver) return;
 
             dragonBoss.stateTimer--;
@@ -544,7 +537,6 @@
         }
 
         function triggerPlayerDamage() {
-            // 🛠️ 死後二次隔離：死後拒絕重算扣血
             if (isGameOver || invulnerableTimer > 0) return; 
 
             scoreFailed++;
@@ -622,7 +614,6 @@
                     if (Math.random() < 0.6) createExplosion(dragonLaser.x + (Math.random() - 0.5) * 20, Math.random() * (canvas.height - dragonLaser.topY) + dragonLaser.topY, true);
                     ctx.restore();
 
-                    // 🛠️ 修正死後判定：isGameOver 為真時，禁止重複觸發射線扣血
                     if (userHatAR.tracked && invulnerableTimer === 0 && !isGameOver) {
                         let hatLeft = userHatAR.x - userHatAR.width / 2;
                         let hatRight = userHatAR.x + userHatAR.width / 2;
@@ -643,7 +634,7 @@
                         gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.2, '#ffdd00'); gradient.addColorStop(0.5, '#ff4500'); gradient.addColorStop(1, 'rgba(255,69,0,0)');
                         ctx.fillStyle = gradient; ctx.arc(fireball.x, fireball.y, fireball.size, 0, Math.PI * 2); ctx.fill();
 
-                        // 💥 基準代碼火球碰撞擊破演算法 - 完全回復
+                        // 黃金基準擊破判定
                         if (crosshair.hasTracking && fireball.size > 15) {
                             let distance = Math.sqrt((crosshair.x - fireball.x)**2 + (crosshair.y - fireball.y)**2);
                             if (distance < (fireball.size * 0.7 + crosshair.currentSize)) {
@@ -686,7 +677,6 @@
             isGameOver = true;
             gameStarted = false;
             
-            // 🛠️ 【結算瞬間清空戰場】：強迫終止火球活躍度與雷射，防止背景繼續扣血與產火球
             fireball.active = false;
             dragonLaser.active = false;
             
