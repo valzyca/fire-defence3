@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Kinetic Sorcery - 巫師火原素特訓</title>
     
+    <!-- Google Fonts 史詩級魔法書寫風格字型 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
     
+    <!-- 引入核心的顏色追蹤庫 與 官方 MediaPipe 臉部網格庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/tracking-min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
@@ -96,8 +98,10 @@
 </head>
 <body>
 
+    <!-- 實時鏡頭 - 移至最底層作為背景 -->
     <video id="webcam" preload autoplay loop muted playsinline></video>
 
+    <!-- 初始主畫面 -->
     <div id="start-screen">
         <canvas id="start-canvas"></canvas>
         <div id="start-ui">
@@ -105,24 +109,31 @@
         </div>
     </div>
     
+    <!-- 遊戲戰鬥特效層 -->
     <canvas id="game-canvas"></canvas>
 
+    <!-- 符文自適應外框 -->
     <div id="game-stone-frame"></div>
 
+    <!-- 危機紅色呼吸層 -->
     <div id="danger-glow-screen"></div>
 
+    <!-- 羅馬數字巨大倒數計時層 -->
     <div id="countdown-overlay">III</div>
 
+    <!-- 頂部提示 UI -->
     <div id="instruction">
         <strong id="ritual-title" style="color: #ffd700;">結界啟動中...</strong><br>
         <span id="ritual-desc" style="font-size: 13px;">請揮動魔杖用準星依序點擊圓圈上的藍色亮點，連出魔法陣密碼！</span>
     </div>
 
+    <!-- 右下角計數器 -->
     <div id="scoreboard">
         <div>成功攔截：<span id="txt-success" class="success">0</span> 次</div>
         <div>防禦失敗：<span id="txt-failed" class="failed">0</span> 次</div>
     </div>
 
+    <!-- 底部五頂魔法帽生命值血條 -->
     <div id="hat-hp-bar">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-1">
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-2">
@@ -131,6 +142,7 @@
         <img src="CIC-hat.png" class="hp-hat-icon" id="hp-hat-5">
     </div>
 
+    <!-- 重新挑戰畫面 -->
     <div id="game-over-screen">
         <div id="game-over-text">特訓結束</div>
         <div id="game-result-details"></div>
@@ -168,7 +180,7 @@
         let bg1Img = new Image(); bg1Img.src = "bg-1.png";
         let circleRotation = 0; let bg1Rotation = 0; let ritualOpacity = 1.0; 
 
-        // 🛠️ 密碼點狀態機重構
+        // 密碼錨點狀態宣告
         let pentagramPoints = []; 
         let nextRequiredPoint = 0; 
 
@@ -180,30 +192,19 @@
         let userHatAR = { x: 0, y: 0, width: 110, height: 110, tracked: false, ivX: 0, ivY: 0 };
         let invulnerableTimer = 0;
 
-        function resizeCanvases() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            startCanvas.width = window.innerWidth;
-            startCanvas.height = window.innerHeight;
-            dragonBoss.x = canvas.width / 2 - dragonBoss.width / 2;
-            generateRandomCirclePoints();
-        }
-        window.addEventListener('resize', resizeCanvases);
-
-        // 🛠️ 【修改亮點】：捨棄寫死的五芒星，改為在 bg-1.png 環狀圓形軌道上動態亂數隨機產生 5 個點
+        // 🛠️ 【時序修正點一】：把隨機點位產生移到獨立函數中，不阻斷畫布大小重置
         function generateRandomCirclePoints() {
+            if (startCanvas.width === 0) return;
             let centerX = startCanvas.width / 2;
             let minDim = Math.min(startCanvas.width, startCanvas.height);
             let circleCenterY = startCanvas.height * 0.34;
-            let radius = minDim * 0.26; // 完美對齊 bg-1.png 圓環半徑
+            let radius = minDim * 0.26; 
 
             pentagramPoints = [];
-            // 隨機取出 5 個不重複且有遞增順序的角度
             let angles = [];
             for (let i = 0; i < 5; i++) {
-                // 將 360 度切成五個扇區，在每個扇區內隨機抖動角度，確保點位均勻分布在圓環上
                 let baseAngle = (Math.PI * 2 / 5) * i - Math.PI / 2;
-                let randomOffset = (Math.random() - 0.5) * (Math.PI * 2 / 12);
+                let randomOffset = (Math.random() - 0.5) * (Math.PI * 2 / 15);
                 angles.push(baseAngle + randomOffset);
             }
 
@@ -216,7 +217,19 @@
             }
         }
 
-        // 封面點擊事件：直接開啟相機與追蹤線程
+        function resizeCanvases() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            startCanvas.width = window.innerWidth;
+            startCanvas.height = window.innerHeight;
+            dragonBoss.x = canvas.width / 2 - dragonBoss.width / 2;
+            if (pentagramPoints.length === 0) {
+                generateRandomCirclePoints();
+            }
+        }
+        window.addEventListener('resize', resizeCanvases);
+
+        // 封面點擊換場
         startScreen.addEventListener('mousedown', (e) => {
             if(gameState === 'cover') { 
                 gameState = 'drawing'; 
@@ -232,7 +245,10 @@
             }
         }, { passive: true });
 
-        // 100% 黃金基準 ColorTracker 色彩硬體咬合
+        // 100% 黃金基準單一 tracker 物件，徹底杜絕重複宣告當機
+        tracking.ColorTracker.registerColor('magic_red', function(r, g, b) {
+            return (r > 165 && g < 55 && b < 55); 
+        });
         const tracker = new tracking.ColorTracker(['magic_red']);
         tracker.setMinDimension(7); 
 
@@ -256,7 +272,7 @@
                     });
             }
 
-            // 同步與相機流咬合
+            // 同步將追蹤核心掛接到視訊流
             tracking.track('#webcam', tracker);
 
             tracker.on('track', function(event) {
@@ -316,14 +332,14 @@
             if (gameStarted && gameState === 'playing') return;
             if (startCanvas.width !== window.innerWidth || startCanvas.height !== window.innerHeight) resizeCanvases();
             
-            // 🛠️ 保持透明度以看清相機背景
+            // 🛠️ 保持透明度，讓使用者一開啟就能看見自己的鏡頭畫面與魔杖準星
             startCtx.clearRect(0, 0, startCanvas.width, startCanvas.height);
 
             let W = startCanvas.width; let H = startCanvas.height;
             let centerX = W / 2; let minDim = Math.min(W, H);
             let circleCenterY = H * 0.34;
 
-            // 實時平滑同步魔杖準星座標
+            // 平滑跟隨魔杖坐標
             crosshair.x += (crosshair.targetX - crosshair.x) * 0.45;
             crosshair.y += (crosshair.targetY - crosshair.y) * 0.45;
 
@@ -359,7 +375,7 @@
 
             let fixedSize = minDim * 0.58;
 
-            // 繪製魔法陣背景輪廓
+            // 繪製圓形魔法陣底圖
             if (gameState === 'cover') {
                 startCtx.save(); startCtx.translate(centerX, circleCenterY);
                 circleRotation += 0.004; startCtx.rotate(circleRotation);
@@ -372,12 +388,12 @@
                 if (bg1Img.complete) startCtx.drawImage(bg1Img, -fixedSize / 2, -fixedSize / 2, fixedSize, fixedSize);
                 startCtx.restore();
 
-                // 🛠️ 【修改亮點】：利用擊破火球相同的程式語法，抓取魔杖準星去碰觸解鎖隨機點
-                if (crosshair.hasTracking) {
+                // 🛠️ 【碰撞修正點】：使用 100% 相同於擊破火球的代碼演算法，觸碰解鎖隨機點位
+                if (crosshair.hasTracking && pentagramPoints.length > 0) {
                     let targetPt = pentagramPoints[nextRequiredPoint];
                     if (targetPt) {
                         let distance = Math.sqrt((crosshair.x - targetPt.x)**2 + (crosshair.y - targetPt.y)**2);
-                        if (distance < 45) { // 碰觸範圍
+                        if (distance < 45) { 
                             targetPt.activated = true;
                             nextRequiredPoint++;
                             if (nextRequiredPoint >= 5) {
@@ -387,22 +403,18 @@
                     }
                 }
 
-                // 🛠️ 【修改亮點】：依序點擊五個點時，自動有「藍色雷射能量線條」連接在已激活的點位之間！
-                if (nextRequiredPoint > 0) {
+                // 繪製自動跟隨點擊進度的「藍色能量連線」
+                if (nextRequiredPoint > 0 && pentagramPoints.length > 0) {
                     startCtx.save();
                     startCtx.strokeStyle = 'rgba(0, 210, 255, 0.8)';
-                    startCtx.lineWidth = 6;
-                    startCtx.lineCap = 'round';
-                    startCtx.lineJoin = 'round';
-                    startCtx.shadowBlur = 15;
-                    startCtx.shadowColor = '#00ffff';
+                    startCtx.lineWidth = 6; startCtx.lineCap = 'round'; startCtx.lineJoin = 'round';
+                    startCtx.shadowBlur = 15; startCtx.shadowColor = '#00ffff';
                     
                     startCtx.beginPath();
                     startCtx.moveTo(pentagramPoints[0].x, pentagramPoints[0].y);
                     for (let k = 1; k < nextRequiredPoint; k++) {
                         startCtx.lineTo(pentagramPoints[k].x, pentagramPoints[k].y);
                     }
-                    // 如果魔杖正在移向當前目標點，拉出一條動態牽引虛線能量
                     if (crosshair.hasTracking && nextRequiredPoint < 5) {
                         startCtx.lineTo(crosshair.x, crosshair.y);
                     }
@@ -410,7 +422,7 @@
                     startCtx.restore();
                 }
 
-                // 繪製隨機圓環密碼點
+                // 繪製隨機點位
                 pentagramPoints.forEach((pt, index) => {
                     startCtx.save();
                     let isCurrent = (index === nextRequiredPoint);
@@ -431,7 +443,7 @@
                     startCtx.restore();
                 });
 
-                // 在解鎖畫面同步渲染魔杖追蹤準星，給予玩家視覺引導
+                // 在解鎖畫面上同步秀出魔杖準星
                 if (crosshair.hasTracking) {
                     startCtx.save();
                     startCtx.translate(crosshair.x, crosshair.y);
@@ -475,7 +487,7 @@
         }
 
         function spawnFireball() {
-            if (isGameOver || gameState !== 'playing') return;
+            if (isGameOver || Math.floor(fireball.size) === 0) return;
             fireball.x = dragonBoss.x + dragonBoss.width / 2;
             fireball.y = dragonBoss.y + dragonBoss.height * 0.7;
             fireball.size = 2;
@@ -484,6 +496,17 @@
             fireball.speedX = Math.cos(angle) * 1.8;
             fireball.speedY = Math.sin(angle) * 1.8;
             fireball.active = true;
+        }
+
+        function createExplosion(x, y, isLaser = false) {
+            let count = isLaser ? 8 : 20;
+            for (let i = 0; i < count; i++) {
+                explosions.push({
+                    x: x, y: y, vx: (Math.random() - 0.5) * (isLaser ? 6 : 12), vy: (Math.random() - 0.5) * (isLaser ? 6 : 12),
+                    size: Math.random() * (isLaser ? 5 : 6) + 3, alpha: 1,
+                    color: isLaser ? `hsl(${Math.random() * 20 + 10}, 100%, 75%)` : `hsl(${Math.random() * 30 + 15}, 100%, 60%)`
+                });
+            }
         }
 
         function handleDragonBossAI() {
@@ -567,7 +590,6 @@
 
                 handleDragonBossAI();
 
-                // 爆炸粒子渲染
                 for (let i = explosions.length - 1; i >= 0; i--) {
                     let p = explosions[i]; p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
                     if (p.alpha <= 0) { explosions.splice(i, 1); continue; }
@@ -575,7 +597,6 @@
                     ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha; ctx.fill(); ctx.restore();
                 }
 
-                // 巨龍射線渲染與碰撞
                 if (dragonLaser.active) {
                     ctx.save();
                     ctx.globalCompositeOperation = 'screen';
@@ -596,7 +617,6 @@
                     }
                 }
 
-                // 火球發射與原始碰撞判定
                 if (!isGameOver) {
                     if (fireball.active) {
                         fireball.x += fireball.speedX; fireball.y += fireball.speedY;
@@ -608,7 +628,6 @@
                         gradient.addColorStop(0, '#fff'); gradient.addColorStop(0.2, '#ffdd00'); gradient.addColorStop(0.5, '#ff4500'); gradient.addColorStop(1, 'rgba(255,69,0,0)');
                         ctx.fillStyle = gradient; ctx.arc(fireball.x, fireball.y, fireball.size, 0, Math.PI * 2); ctx.fill();
 
-                        // 黃金基準擊破碰撞
                         if (crosshair.hasTracking && fireball.size > 15) {
                             let distance = Math.sqrt((crosshair.x - fireball.x)**2 + (crosshair.y - fireball.y)**2);
                             if (distance < (fireball.size * 0.7 + crosshair.currentSize)) {
@@ -625,7 +644,6 @@
                     }
                 }
 
-                // 繪製 Boss 龍頭
                 if (dragonImg.complete) {
                     ctx.save();
                     let offsetX = (dragonBoss.state === 'pre_laser') ? (Math.random() - 0.5) * 5 : 0;
@@ -633,7 +651,6 @@
                     ctx.restore();
                 }
 
-                // 繪製人頭頂 AR 魔法帽
                 if (userHatAR.tracked && hatImg.complete) {
                     if (invulnerableTimer === 0 || Math.floor(invulnerableTimer / 4) % 2 === 0) {
                         ctx.save();
@@ -641,19 +658,20 @@
                         ctx.restore();
                     }
                 }
-
-                // 繪製戰鬥魔杖追蹤準星
-                if (crosshair.hasTracking) {
-                    crosshair.rotation += 0.04;
-                    let dist = Math.hypot(crosshair.x - fireball.x, crosshair.y - fireball.y);
-                    let strokeColor = (fireball.active && dist < 100 && fireball.size > 15) ? '#ff3333' : '#00d2ff';
-                    ctx.save(); ctx.translate(crosshair.x, crosshair.y); ctx.rotate(crosshair.rotation);
-                    ctx.lineWidth = 2; ctx.strokeStyle = strokeColor; ctx.shadowBlur = 4; ctx.shadowColor = strokeColor;
-                    ctx.beginPath(); ctx.arc(0, 0, crosshair.currentSize, 0, Math.PI * 2); ctx.setLineDash([6, 6]); ctx.stroke();
-                    ctx.beginPath(); ctx.rect(-crosshair.currentSize*0.6, -crosshair.currentSize*0.6, crosshair.currentSize*1.2, crosshair.currentSize*1.2); ctx.setLineDash([]); ctx.lineWidth = 1; ctx.stroke();
-                    ctx.restore();
-                }
             }
+
+            // 無條件在最上層繪製色彩追蹤準星
+            if (crosshair.hasTracking && (gameState === 'playing' || gameState === 'drawing')) {
+                crosshair.rotation += 0.04;
+                let dist = Math.hypot(crosshair.x - fireball.x, crosshair.y - fireball.y);
+                let strokeColor = (fireball.active && dist < 100 && fireball.size > 15) ? '#ff3333' : '#00d2ff';
+                ctx.save(); ctx.translate(crosshair.x, crosshair.y); ctx.rotate(crosshair.rotation);
+                ctx.lineWidth = 2; ctx.strokeStyle = strokeColor; ctx.shadowBlur = 4; ctx.shadowColor = strokeColor;
+                ctx.beginPath(); ctx.arc(0, 0, crosshair.currentSize, 0, Math.PI * 2); ctx.setLineDash([6, 6]); ctx.stroke();
+                ctx.beginPath(); ctx.rect(-crosshair.currentSize*0.6, -crosshair.currentSize*0.6, crosshair.currentSize*1.2, crosshair.currentSize*1.2); ctx.setLineDash([]); ctx.lineWidth = 1; ctx.stroke();
+                ctx.restore();
+            }
+
             requestAnimationFrame(gameLoop);
         }
 
@@ -683,7 +701,7 @@
             window.location.reload(true);
         }
 
-        // 🛠️ 啟動相機串流前置，確保開局直接打開 AR 偵測魔杖
+        // 🛠️ 【核心載入時序重組】：先完成全域寬高與點位計算，接著同步開啟追蹤與渲染循環，100% 免疫死鎖！
         resizeCanvases();
         initTrackerAndAR(); 
         updateStartScreen();
